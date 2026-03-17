@@ -71,3 +71,11 @@ Examples:
 ## Domains
 
 **OpenHanse.org** is the official domain for the organisation, where all official information, documentation, and resources related to OpenHanse will be hosted in the future while **OpenHanse.com** will redirect to OpenHanse.org to avoid fraud and confusion. The project may also use subdomains for specific services or applications in the future.
+
+## Current Non-Goals
+
+Beside of the general goals mentioned in the project vision, there are some specific use-cases that are currently considered out of scope for OpenHanse:
+
+- Being a public system/website for an specific use-case (e.g. marketplace, social network, file sharing, payment solution, etc.)
+- Being a public system for anonymous communication or exchange (e.g. Tor-like network, cryptocurrency, etc.)
+- Being a VPN or proxy service (e.g. for geo-bypassing, etc.)

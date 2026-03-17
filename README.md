@@ -16,6 +16,13 @@ OpenHanse explores a middle ground: easier distribution and access with fewer te
 
 The long-term vision is an open stack for discovering, distributing, and running local-first applications.
 
+The current implementation path is intentionally smaller:
+
+- `openhanse-server`: the Rust central server for rendezvous and relay
+- `openhanse-cli`: a lightweight reference client for Phase 1 protocol validation
+
+GUI clients for Apple, Windows, Linux, and Android are still planned, but they are no longer required for the first MVP. Phase 1 now focuses on proving the communication model end to end with a simple CLI client before expanding into platform-native apps.
+
 ## Get In Touch
 
 If you're interested in learning more, contributing, or just want to chat about the project, feel free to reach out via GitHub.

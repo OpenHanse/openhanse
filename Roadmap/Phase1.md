@@ -1,10 +1,10 @@
-# OpenHanse / Roadmap / Phase 1 - Central Server MVP And macOS Gateway
+# OpenHanse / Roadmap / Phase 1 - Central Server MVP And CLI Gateway
 
-This document defines the steps for the first phase of OpenHanse development, which focuses on building a central server application that implements rendezvous and relay functionality, as well as a gateway app for macOS that can connect to the server and establish peer-to-peer communication with other gateways.
+This document defines the steps for the first phase of OpenHanse development, which focuses on building a central server application that implements rendezvous and relay functionality, as well as a simple CLI gateway client that can connect to the server and establish peer-to-peer communication with other gateways.
 
-The concrete MVP example for this phase is a very simple chat app:
+The concrete MVP example for this phase is a very simple chat flow:
 
-- each gateway has a basic UI for sending a text message
+- each gateway can send a text message
 - each gateway has a basic messaging endpoint for receiving a message
 - both gateways should be able to exchange messages across different networks
 - direct peer-to-peer should be preferred whenever possible
@@ -27,10 +27,16 @@ Build one Rust server application with two logical responsibilities:
 - `rendezvous`: peer registration, heartbeats, peer lookup, connection negotiation, and liveness tracking
 - `relay`: byte forwarding for sessions that cannot be established directly
 
-Build one macOS gateway app with two logical responsibilities:
+Build one simple CLI gateway client with two logical responsibilities:
 
-- a small chat UI for sending and viewing text messages
+- a minimal command-oriented way to send and inspect text messages
 - a networking layer that can both accept direct peer messages and use the central server for coordination or relay
+
+The CLI client should live in its own repository:
+
+- `openhanse-cli`: protocol test client and reference CLI for the MVP
+
+This keeps the Phase 1 client focused on protocol validation without coupling it to any specific GUI platform. Native GUI clients for Apple, Windows, Linux, and Android can follow later in their own repositories.
 
 The MVP should use in-memory state only.
 
@@ -70,11 +76,11 @@ The MVP server should support these operations at a planning level:
 - direct-attempt instruction when both peers appear reachable enough
 - relay-required instruction with a relay session token when direct setup is not suitable
 
-The MVP gateway should support these operations at a planning level:
+The MVP gateway client should support these operations at a planning level:
 
 - register itself with the server and keep its presence alive
 - expose a basic messaging endpoint for direct peer delivery
-- send a text message to a target peer through the chat UI
+- send a text message to a target peer through the CLI
 - attempt direct delivery when the server returns reachable peer information
 - attach to a relay session when direct delivery is not possible
 
@@ -118,7 +124,7 @@ Wire format, final schema details, and full cryptographic protocol design should
 
 ### Phase 1.3: Direct delivery and relay fallback
 
-- [ ] Implement the gateway-side direct messaging endpoint and direct send attempt.
+- [ ] Implement the CLI client direct messaging endpoint and direct send attempt.
 - [ ] Implement relay session creation and pairing using `RelaySessionId`.
 - [ ] Allow both peers to attach to the same relay session.
 - [ ] Forward chat payloads between both peers once paired.
@@ -139,15 +145,16 @@ The MVP should explicitly not aim for:
 - clustered or highly available deployment
 - durable persistence
 - complete account management
+- native GUI clients for macOS, Windows, Linux, or Android
 - marketplace, app distribution, or broader OpenHanse application-layer features
 
 ## Acceptance Scenarios
 
-- Two gateways register successfully and remain visible while heartbeats continue.
-- A text message sent from one gateway to another prefers a direct peer-to-peer delivery attempt when both peers appear reachable.
+- Two CLI gateways register successfully and remain visible while heartbeats continue.
+- A text message sent from one CLI gateway to another prefers a direct peer-to-peer delivery attempt when both peers appear reachable.
 - The server instructs relay fallback when direct setup fails or is unsuitable.
 - Two gateways behind NAT or on different networks can still exchange messages through the server.
 - Peer presence expires automatically after missed heartbeats.
 - A relay session only pairs the intended two peers.
 - After server restart, in-memory state is lost and peers recover by registering again.
-- The gateway UI shows sent and received text messages regardless of whether the message used a direct path or relay.
+- The CLI output shows sent and received text messages regardless of whether the message used a direct path or relay.

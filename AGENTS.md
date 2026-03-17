@@ -26,7 +26,7 @@ OpenHanse consists of multiple repositories that serve different purposes:
 ## Technical Stack
 
 - **Rust** for the server components, common backend code, and shared libraries
-- **Swift** for the Apple gateway app utilizing SwiftUI for the user interface and Rust for shared logic
-- **Kotlin** for the Android gateway app utilizing Jetpack Compose for the user interface and Rust for shared logic
-- **C#** for the Windows gateway app utilizing WPF for the user interface and Rust for shared logic
-- **C++** for the Linux gateway app utilizing Qt for the user interface and Rust for shared logic
+- **Swift** for the Apple gateway app utilizing a web-based user interface and Rust for shared logic
+- **Kotlin** for the Android gateway app utilizing a web-based user interface and Rust for shared logic
+- **C#** for the Windows gateway app utilizing a web-based user interface and Rust for shared logic
+- **C++** for the Linux gateway app utilizing a web-based user interface and Rust for shared logic

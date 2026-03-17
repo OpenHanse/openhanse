@@ -23,6 +23,40 @@ The current implementation path is intentionally smaller:
 
 GUI clients for Apple, Windows, Linux, and Android are still planned, but they are no longer required for the first MVP. Phase 1 now focuses on proving the communication model end to end with a simple CLI client before expanding into platform-native apps.
 
+## Basic Communication
+
+The Phase 1 MVP is built around a direct-first communication model: gateways register with the OpenHanse server, keep their presence alive, and ask the server whether a message should go directly to another gateway or fall back to a relay session.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant GatewayA as Gateway A
+    participant Server as OpenHanse Server
+    participant GatewayB as Gateway B
+
+    GatewayA->>Server: Register peer and direct endpoint
+    GatewayB->>Server: Register peer and direct endpoint
+
+    loop Presence heartbeat
+        GatewayA->>Server: Refresh presence lease
+        GatewayB->>Server: Refresh presence lease
+    end
+
+    GatewayA->>Server: Request connection to Gateway B
+
+    alt Direct path available
+        Server-->>GatewayA: Return Gateway B direct address
+        GatewayA->>GatewayB: Send message directly
+        GatewayB-->>GatewayA: Respond directly
+    else Direct path unavailable
+        Server-->>GatewayA: Return relay session
+        GatewayA->>Server: Send message via relay
+        Server->>GatewayB: Forward relayed message
+        GatewayB-->>Server: Relay response or acknowledgement
+        Server-->>GatewayA: Forward response
+    end
+```
+
 ## Get In Touch
 
 If you're interested in learning more, contributing, or just want to chat about the project, feel free to reach out via GitHub.

@@ -18,7 +18,7 @@ The long-term vision is an open stack for discovering, distributing, and running
 
 The current implementation path is intentionally smaller:
 
-- `openhanse-server`: the Rust central server for rendezvous and relay
+- `openhanse-hub`: the Rust central hub for rendezvous and relay
 - `openhanse-cli`: a lightweight reference client for Phase 1 protocol validation
 
 GUI clients for Apple, Windows, Linux, and Android are still planned, but they are no longer required for the first MVP. Phase 1 now focuses on proving the communication model end to end with a simple CLI client before expanding into platform-native apps.
@@ -29,7 +29,7 @@ GUI clients for Apple, Windows, Linux, and Android are still planned, but they a
 graph TD
     Protocol["openhanse-protocol<br/>Shared protocol models and logic"]
     GatewayCore["openhanse-gateway<br/>Reusable gateway-side access layer"]
-    Hub["openhanse-hub<br/>(currently openhanse-server)<br/>Central rendezvous and relay app"]
+    Hub["openhanse-hub<br/>Central rendezvous and relay app"]
     Apple["openhanse-apple<br/>Apple gateway app"]
 
     Protocol --> GatewayCore

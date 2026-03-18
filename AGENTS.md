@@ -11,7 +11,7 @@ OpenHanse consists of multiple repositories that serve different purposes:
 - `openhanse-android`: This repository is containing the source code for the Android gateway app.
 - `openhanse-windows`: This repository is containing the source code for the Windows gateway app.
 - `openhanse-linux`: This repository is containing the source code for the Linux gateway app.
-- `openhanse-server`: This repository is containing the source code for the OpenHanse server components acting as connection point for the gateway apps.
+- `openhanse-hub`: This repository is containing the source code for the OpenHanse hub components acting as connection point for the gateway apps.
 
 ## Source Of Truth
 

@@ -13,7 +13,10 @@ if (!apiBase) {
   };
 
   shell.setApiBase(apiBase);
+  shell.appendLog("system", "OpenHanse gateway shell ready.");
+  shell.appendLog("hint", "Type /help to list available commands.");
   shell.onCommand(async (input) => {
+    shell.echoCommand(input);
     try {
       await handleInput(state, input);
     } catch (error) {
@@ -88,7 +91,14 @@ async function handleInput(state, rawInput) {
     case "/help": {
       shell.appendLog(
         "help",
-        ["/lookup", "/connect", "/inbox", "/clear", "/help", "text to send a chat message"].join("\n")
+        [
+          "/lookup   resolve the current target peer",
+          "/connect  test direct or relay connection setup",
+          "/inbox    print received chat messages",
+          "/clear    clear the terminal history",
+          "/help     show this help text",
+          "message   send chat text to the selected peer"
+        ].join("\n")
       );
       return;
     }

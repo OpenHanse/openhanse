@@ -6,7 +6,7 @@ class OpenHansePrompt extends HTMLElement {
       <style>
         :host {
           display: block;
-          padding: 12px;
+          padding: 12px 16px 16px;
         }
 
         form {
@@ -16,26 +16,32 @@ class OpenHansePrompt extends HTMLElement {
           align-items: center;
         }
 
+        .prompt {
+          color: #8df6b0;
+        }
+
         input {
           width: 100%;
-          border: 1px solid #111;
-          padding: 8px;
+          border: 0;
+          padding: 0;
           font: inherit;
           background: transparent;
           color: inherit;
+          outline: none;
         }
       </style>
       <form>
-        <span>&gt;</span>
-        <input type="text" autocomplete="off" spellcheck="false">
+        <span class="prompt">guest@openhanse:~$</span>
+        <input type="text" autocomplete="off" spellcheck="false" aria-label="Terminal input">
       </form>
     `;
   }
 
   connectedCallback() {
-    this.shadowRoot.querySelector("form").addEventListener("submit", (event) => {
+    const form = this.shadowRoot.querySelector("form");
+    const input = this.shadowRoot.querySelector("input");
+    form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const input = this.shadowRoot.querySelector("input");
       const value = input.value;
       input.value = "";
       this.dispatchEvent(new CustomEvent("command", {
@@ -44,6 +50,7 @@ class OpenHansePrompt extends HTMLElement {
         composed: true
       }));
     });
+    input.focus();
   }
 }
 

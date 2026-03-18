@@ -19,22 +19,27 @@ The long-term vision is an open stack for discovering, distributing, and running
 The current implementation path is intentionally smaller:
 
 - `openhanse-hub`: the Rust central hub for rendezvous and relay
-- `openhanse-cli`: a lightweight reference client for Phase 1 protocol validation
+- `openhanse-cli`: the command-line gateway flavor used to prove the client/runtime split
+- `openhanse-apple`: the first native host app embedding the shared web gateway
 
-GUI clients for Apple, Windows, Linux, and Android are still planned, but they are no longer required for the first MVP. Phase 1 now focuses on proving the communication model end to end with a simple CLI client before expanding into platform-native apps.
+Phase 1 still focuses on proving the communication model end to end before broad platform rollout, but the gateway side is now split into reusable Rust layers so both CLI and native host apps can share the same runtime behavior.
 
 ## Shared Rust Architecture
 
 ```mermaid
 graph TD
-    Protocol["openhanse-protocol<br/>Shared protocol models and logic"]
-    GatewayCore["openhanse-gateway<br/>Reusable gateway-side access layer"]
+    Protocol["openhanse-protocol<br/>Shared wire models"]
+    GatewayCore["openhanse-gateway-core<br/>Shared OpenHanse client runtime"]
+    GatewayCli["openhanse-gateway-cli<br/>Command-line gateway"]
+    GatewayWeb["openhanse-gateway-web<br/>REST API + web UI + C ABI"]
     Hub["openhanse-hub<br/>Central rendezvous and relay app"]
-    Apple["openhanse-apple<br/>Apple gateway app"]
+    Apple["openhanse-apple<br/>Swift host app with WKWebView"]
 
-    Protocol --> GatewayCore
     Protocol --> Hub
-    GatewayCore --> Apple
+    Protocol --> GatewayCore
+    GatewayCore --> GatewayCli
+    GatewayCore --> GatewayWeb
+    GatewayWeb --> Apple
 ```
 
 ## Basic Communication

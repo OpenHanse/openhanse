@@ -1,0 +1,17 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: Menlo, Monaco, "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  background: #ffffff;
+  color: #111111;
+}
+
+* {
+  box-sizing: border-box;
+}

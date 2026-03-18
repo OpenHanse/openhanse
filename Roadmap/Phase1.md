@@ -1,6 +1,6 @@
 # OpenHanse / Roadmap / Phase 1 - Central Server MVP And CLI Gateway
 
-This document defines the steps for the first phase of OpenHanse development, which focuses on building a central server application that implements rendezvous and relay functionality, as well as a simple CLI gateway client that can connect to the server and establish peer-to-peer communication with other gateways.
+This document defines the steps for the first phase of OpenHanse development, which focuses on building a central server application that implements rendezvous and relay functionality, as well as a simple gateway client that can connect to the server and establish peer-to-peer communication with other gateways.
 
 The concrete MVP example for this phase is a very simple chat flow:
 
@@ -27,16 +27,27 @@ Build one Rust server application with two logical responsibilities:
 - `rendezvous`: peer registration, heartbeats, peer lookup, connection negotiation, and liveness tracking
 - `relay`: byte forwarding for sessions that cannot be established directly
 
-Build one simple CLI gateway client with two logical responsibilities:
+Build one simple gateway client runtime with two logical responsibilities:
 
 - a minimal command-oriented way to send and inspect text messages
 - a networking layer that can both accept direct peer messages and use the central server for coordination or relay
+
+This runtime is now implemented as a small set of shared Rust crates:
+
+- `openhanse-protocol`: shared wire models
+- `openhanse-gateway-core`: shared OpenHanse client runtime
+- `openhanse-gateway-cli`: reference terminal client using the core runtime
+- `openhanse-gateway-web`: shared REST, web UI, and C ABI gateway built on the core runtime
+
+The first native host app using the shared web gateway is:
+
+- `openhanse-apple`: Apple gateway app through the C ABI exposed by `openhanse-gateway-web`
 
 The CLI client should live in its own repository:
 
 - `openhanse-cli`: protocol test client and reference CLI for the MVP
 
-This keeps the Phase 1 client focused on protocol validation without coupling it to any specific GUI platform. Native GUI clients for Apple, Windows, Linux, and Android can follow later in their own repositories.
+This keeps the Phase 1 runtime focused on protocol validation without coupling the networking logic to any single UI. Native GUI clients for Apple, Windows, Linux, and Android can build on top of that shared runtime in their own repositories.
 
 The MVP should use in-memory state only.
 
@@ -76,11 +87,11 @@ The MVP server should support these operations at a planning level:
 - direct-attempt instruction when both peers appear reachable enough
 - relay-required instruction with a relay session token when direct setup is not suitable
 
-The MVP gateway client should support these operations at a planning level:
+The MVP gateway client runtime should support these operations at a planning level:
 
 - register itself with the server and keep its presence alive
 - expose a basic messaging endpoint for direct peer delivery
-- send a text message to a target peer through the CLI
+- send a text message to a target peer through a thin client shell such as the CLI or Apple app
 - attempt direct delivery when the server returns reachable peer information
 - attach to a relay session when direct delivery is not possible
 
@@ -125,6 +136,9 @@ Wire format, final schema details, and full cryptographic protocol design should
 ### Phase 1.3: Direct delivery and relay fallback
 
 - [x] Implement the CLI client direct messaging endpoint and direct send attempt.
+- [x] Move the reusable gateway runtime into the shared `openhanse-gateway-core` crate.
+- [x] Split the host-facing REST, web UI, and C ABI layer into `openhanse-gateway-web`.
+- [x] Prove the shared runtime through both `openhanse-gateway-cli` and the first Apple app shell.
 - [ ] Implement relay session creation and pairing using `RelaySessionId`.
 - [ ] Allow both peers to attach to the same relay session.
 - [ ] Forward chat payloads between both peers once paired.
@@ -145,7 +159,7 @@ The MVP should explicitly not aim for:
 - clustered or highly available deployment
 - durable persistence
 - complete account management
-- native GUI clients for macOS, Windows, Linux, or Android
+- polished production-ready native GUI clients for macOS, Windows, Linux, or Android
 - marketplace, app distribution, or broader OpenHanse application-layer features
 
 ## Acceptance Scenarios

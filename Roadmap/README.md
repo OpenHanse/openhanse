@@ -2,13 +2,13 @@
 
 This document contains a high-level roadmap and actionable plan for the OpenHanse project.
 
-## Phase 1: Central Server MVP And macOS Gateway
+## Phase 1: Central Server MVP And Shared Gateway Layers
 
-The first phase of OpenHanse development will focus on building a central server application that implements rendezvous and relay functionality, as well as a gateway app for macOS that can connect to the server and establish peer-to-peer communication with other gateways. The concrete MVP example will be a simple chat app with direct peer-to-peer delivery preferred and server relay used as a fallback.
+The first phase of OpenHanse development focuses on building a central server application that implements rendezvous and relay functionality, plus a shared set of Rust gateway layers that can be hosted by both CLI and native apps. The concrete MVP example remains a simple chat app with direct peer-to-peer delivery preferred and server relay used as a fallback.
 
-## Phase 2: Cross-Platform Gateways
+## Phase 2: Cross-Platform Gateway Hosts
 
-The second phase will expand the gateway applications to other platforms, including iOS, Android, Windows, and Linux. This will involve adapting the gateway code to each platform's specific requirements and user interface conventions while maintaining a consistent communication model with the central server.
+The second phase will expand the gateway applications to other platforms, including iOS, Android, Windows, and Linux. This will involve building thin platform hosts around the shared gateway web/runtime layers while adapting lifecycle, packaging, and platform-specific integration points as needed.
 
 ## Phase 3: Hardening
 

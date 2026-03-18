@@ -103,28 +103,28 @@ Wire format, final schema details, and full cryptographic protocol design should
 
 ### Phase 1.0: Message flow sketch
 
-- [ ] Write the control-plane message sketch for registration, heartbeat, connect negotiation, and relay pairing.
+- [x] Write the control-plane message sketch for registration, heartbeat, connect negotiation, and relay pairing.
 - [ ] Define basic peer and relay session state transitions.
-- [ ] Draw a simple sequence diagram for direct-first chat delivery with relay fallback.
-- [ ] Sketch the gateway message endpoint shape for receiving a text message.
+- [x] Draw a simple sequence diagram for direct-first chat delivery with relay fallback.
+- [x] Sketch the gateway message endpoint shape for receiving a text message.
 
 ### Phase 1.1: Rendezvous basics
 
-- [ ] Implement peer registration and heartbeat handling.
-- [ ] Store online peers in memory with expiry timestamps.
-- [ ] Support peer lookup and basic liveness checks.
-- [ ] Return enough connection metadata for gateways to attempt direct delivery.
+- [x] Implement peer registration and heartbeat handling.
+- [x] Store online peers in memory with expiry timestamps.
+- [x] Support peer lookup and basic liveness checks.
+- [x] Return enough connection metadata for gateways to attempt direct delivery.
 
 ### Phase 1.2: Connection negotiation
 
-- [ ] Add `ConnectRequest` handling between two peers.
-- [ ] Return a `ConnectDecision` that prefers direct setup when conditions look acceptable.
-- [ ] Add timeouts and cleanup for incomplete negotiations.
-- [ ] Support the chat use case where one gateway wants to deliver a text message to another.
+- [x] Add `ConnectRequest` handling between two peers.
+- [x] Return a `ConnectDecision` that prefers direct setup when conditions look acceptable.
+- [x] Add timeouts and cleanup for incomplete negotiations.
+- [x] Support the chat use case where one gateway wants to deliver a text message to another.
 
 ### Phase 1.3: Direct delivery and relay fallback
 
-- [ ] Implement the CLI client direct messaging endpoint and direct send attempt.
+- [x] Implement the CLI client direct messaging endpoint and direct send attempt.
 - [ ] Implement relay session creation and pairing using `RelaySessionId`.
 - [ ] Allow both peers to attach to the same relay session.
 - [ ] Forward chat payloads between both peers once paired.

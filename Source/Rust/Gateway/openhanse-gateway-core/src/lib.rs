@@ -11,6 +11,11 @@ use openhanse_protocol::model::{
         HeartbeatRequestModel, PeerLookupResponseModel, RegisterPeerRequestModel,
         RegisterPeerResponseModel,
     },
+    relay_model::{
+        RelayAttachRequestModel, RelayAttachResponseModel, RelayMessageEnvelopeModel,
+        RelayPollRequestModel, RelayPollResponseModel, RelaySendRequestModel,
+        RelaySendResponseModel,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -30,6 +35,7 @@ use tokio::{
 
 const DEFAULT_MESSAGE_ENDPOINT: &str = "/message";
 const DEFAULT_HEARTBEAT_INTERVAL_SECS: u64 = 10;
+const DEFAULT_RELAY_POLL_INTERVAL_MS: u64 = 1000;
 const MAX_EVENTS: usize = 256;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -108,6 +114,8 @@ pub struct GatewayRuntimeConfig {
     pub server_base_url: String,
     pub direct_bind_host: String,
     pub direct_bind_port: u16,
+    #[serde(default = "default_supports_direct")]
+    pub supports_direct: bool,
     pub heartbeat_interval_secs: u64,
     pub storage_dir: PathBuf,
 }
@@ -130,6 +138,7 @@ impl GatewayRuntimeConfig {
             server_base_url,
             direct_bind_host,
             direct_bind_port,
+            supports_direct: profile.supports_direct,
             heartbeat_interval_secs,
             storage_dir,
         }
@@ -140,6 +149,8 @@ impl GatewayRuntimeConfig {
         if self.heartbeat_interval_secs == 0 {
             self.heartbeat_interval_secs = DEFAULT_HEARTBEAT_INTERVAL_SECS;
         }
+        self.supports_direct =
+            self.supports_direct && should_advertise_direct_endpoint(&self.direct_bind_host);
         self
     }
 
@@ -148,12 +159,13 @@ impl GatewayRuntimeConfig {
             peer_id: self.peer_id.clone(),
             device_key: self.device_key.clone(),
             display_name: self.display_name.clone(),
-            direct_addresses: vec![format!(
-                "http://{}:{}",
-                self.direct_bind_host, self.direct_bind_port
-            )],
+            direct_addresses: direct_addresses_for(
+                &self.direct_bind_host,
+                self.direct_bind_port,
+                self.supports_direct,
+            ),
             message_endpoint: Some(DEFAULT_MESSAGE_ENDPOINT.to_string()),
-            supports_direct: true,
+            supports_direct: self.supports_direct,
         }
     }
 
@@ -278,7 +290,11 @@ impl GatewayRuntimeHandle {
             .map_err(|error| format!("failed to inspect direct listener: {error}"))?;
 
         let profile = GatewayProfile {
-            direct_addresses: vec![format!("http://{}:{}", config.direct_bind_host, direct_address.port())],
+            direct_addresses: direct_addresses_for(
+                &config.direct_bind_host,
+                direct_address.port(),
+                config.supports_direct,
+            ),
             ..config.profile()
         };
         let inbox = load_json_lines::<InboxEntryModel>(&config.inbox_file())?;
@@ -321,6 +337,7 @@ impl GatewayRuntimeHandle {
         handle.spawn_direct_receiver(direct_listener).await;
         handle.register().await?;
         handle.spawn_heartbeat_loop().await;
+        handle.spawn_relay_poll_loop().await;
 
         Ok(handle)
     }
@@ -428,6 +445,14 @@ impl GatewayRuntimeHandle {
     }
 
     pub async fn connect_target(&self) -> Result<ConnectDecisionModel, String> {
+        self.connect_target_with_preference(DeliveryPreference::DirectFirst)
+            .await
+    }
+
+    async fn connect_target_with_preference(
+        &self,
+        preference: DeliveryPreference,
+    ) -> Result<ConnectDecisionModel, String> {
         self.record_event(
             "connect_started",
             format!(
@@ -442,7 +467,7 @@ impl GatewayRuntimeHandle {
             .connect(
                 &self.shared.profile,
                 &self.shared.config.target_peer_id,
-                DeliveryPreference::DirectFirst,
+                preference,
             )
             .await
         {
@@ -511,16 +536,36 @@ impl GatewayRuntimeHandle {
                         })
                     }
                     Err(error) => {
-                        self.record_error(&error).await?;
-                        Err(error)
+                        self.record_event(
+                            "direct_delivery_failed",
+                            format!(
+                                "Direct delivery to {} failed, retrying via relay: {}",
+                                self.shared.config.target_peer_id, error
+                            ),
+                        )
+                        .await?;
+                        let relay_decision = self
+                            .connect_target_with_preference(DeliveryPreference::RelayOnly)
+                            .await?;
+                        match relay_decision {
+                            ConnectDecisionModel::Relay { relay } => {
+                                self.send_message_via_relay(relay, payload).await
+                            }
+                            ConnectDecisionModel::Direct { .. } => {
+                                self.record_error(&error).await?;
+                                Err(error)
+                            }
+                        }
                     }
                 }
             }
-            ConnectDecisionModel::Relay { .. } => {
-                let error =
-                    "relay transfer is not implemented yet in the Phase 1 Rust gateway".to_string();
-                self.record_error(&error).await?;
-                Err(error)
+            ConnectDecisionModel::Relay { relay } => {
+                let payload = self.shared.profile.outbound_message(
+                    self.shared.config.target_peer_id.clone(),
+                    message,
+                    current_unix_ms(),
+                );
+                self.send_message_via_relay(relay, payload).await
             }
         }
     }
@@ -568,6 +613,34 @@ impl GatewayRuntimeHandle {
         &self,
         payload: ChatMessageEnvelopeModel,
     ) -> Result<AcceptedResponse, String> {
+        self.persist_received_message(payload, "direct").await?;
+
+        Ok(AcceptedResponse {
+            status: "accepted".to_string(),
+            peer_id: self.shared.profile.peer_id.clone(),
+        })
+    }
+
+    async fn receive_relay_message(
+        &self,
+        envelope: RelayMessageEnvelopeModel,
+    ) -> Result<(), String> {
+        self.persist_received_message(envelope.payload, "relay").await?;
+        self.record_event(
+            "relay_message_received",
+            format!(
+                "Received relay message on session {}.",
+                envelope.relay_session_id
+            ),
+        )
+        .await
+    }
+
+    async fn persist_received_message(
+        &self,
+        payload: ChatMessageEnvelopeModel,
+        delivery_mode: &str,
+    ) -> Result<(), String> {
         let entry = InboxEntryModel {
             received_at_unix_ms: current_unix_ms(),
             peer_id: self.shared.profile.peer_id.clone(),
@@ -581,16 +654,11 @@ impl GatewayRuntimeHandle {
         self.record_event(
             "message_received",
             format!(
-                "Received message from {}: {}",
-                payload.from_peer_id, payload.message
+                "Received {} message from {}: {}",
+                delivery_mode, payload.from_peer_id, payload.message
             ),
         )
-        .await?;
-
-        Ok(AcceptedResponse {
-            status: "accepted".to_string(),
-            peer_id: self.shared.profile.peer_id.clone(),
-        })
+        .await
     }
 
     async fn spawn_direct_receiver(&self, listener: TcpListener) {
@@ -627,6 +695,62 @@ impl GatewayRuntimeHandle {
             }
         });
         self.shared.tasks.lock().await.push(task);
+    }
+
+    async fn spawn_relay_poll_loop(&self) {
+        let runtime = self.clone();
+        let mut shutdown_rx = self.shared.shutdown_tx.subscribe();
+        let task = tokio::spawn(async move {
+            let duration = Duration::from_millis(DEFAULT_RELAY_POLL_INTERVAL_MS);
+            loop {
+                tokio::select! {
+                    _ = tokio::time::sleep(duration) => {
+                        match runtime.shared.hub_client.poll_relay_messages(&runtime.shared.profile.peer_id).await {
+                            Ok(response) => {
+                                for envelope in response.messages {
+                                    if let Err(error) = runtime.receive_relay_message(envelope).await {
+                                        let _ = runtime.record_error(&error).await;
+                                    }
+                                }
+                            }
+                            Err(error) => {
+                                let _ = runtime.record_error(&error).await;
+                            }
+                        }
+                    }
+                    _ = shutdown_rx.changed() => break,
+                }
+            }
+        });
+        self.shared.tasks.lock().await.push(task);
+    }
+
+    async fn send_message_via_relay(
+        &self,
+        relay: openhanse_protocol::model::connect_model::RelayConnectionInfoModel,
+        payload: ChatMessageEnvelopeModel,
+    ) -> Result<SendMessageResponseModel, String> {
+        self.shared
+            .hub_client
+            .attach_relay(relay.relay_session_id, &self.shared.profile.peer_id)
+            .await?;
+        self.shared
+            .hub_client
+            .send_relay_message(relay.relay_session_id, &self.shared.profile.peer_id, &payload)
+            .await?;
+        self.record_event(
+            "message_sent",
+            format!(
+                "Sent relay message to {} using session {}.",
+                payload.to_peer_id, relay.relay_session_id
+            ),
+        )
+        .await?;
+        Ok(SendMessageResponseModel {
+            accepted: true,
+            delivery_mode: "relay".to_string(),
+            target_url: join_url(&self.shared.config.server_base_url, "/v1/relay/send"),
+        })
     }
 
     async fn record_error(&self, error: &str) -> Result<(), String> {
@@ -685,6 +809,18 @@ fn direct_bind_candidates(bind_host: &str, bind_port: u16) -> Vec<String> {
 
 fn is_loopback_host(host: &str) -> bool {
     matches!(host, "127.0.0.1" | "localhost" | "::1")
+}
+
+pub fn should_advertise_direct_endpoint(bind_host: &str) -> bool {
+    !is_loopback_host(bind_host)
+}
+
+fn direct_addresses_for(bind_host: &str, bind_port: u16, supports_direct: bool) -> Vec<String> {
+    if !supports_direct {
+        return Vec::new();
+    }
+
+    vec![format!("http://{}:{}", bind_host, bind_port)]
 }
 
 async fn receive_message_endpoint(
@@ -778,6 +914,51 @@ impl HubClient {
         decode_json_response(response).await
     }
 
+    async fn attach_relay(
+        &self,
+        relay_session_id: uuid::Uuid,
+        peer_id: &str,
+    ) -> Result<RelayAttachResponseModel, String> {
+        self.post_json(
+            "/v1/relay/attach",
+            &RelayAttachRequestModel {
+                relay_session_id,
+                peer_id: peer_id.to_string(),
+            },
+        )
+        .await
+    }
+
+    async fn send_relay_message(
+        &self,
+        relay_session_id: uuid::Uuid,
+        peer_id: &str,
+        payload: &ChatMessageEnvelopeModel,
+    ) -> Result<RelaySendResponseModel, String> {
+        self.post_json(
+            "/v1/relay/send",
+            &RelaySendRequestModel {
+                relay_session_id,
+                peer_id: peer_id.to_string(),
+                payload: payload.clone(),
+            },
+        )
+        .await
+    }
+
+    async fn poll_relay_messages(
+        &self,
+        peer_id: &str,
+    ) -> Result<RelayPollResponseModel, String> {
+        self.post_json(
+            "/v1/relay/poll",
+            &RelayPollRequestModel {
+                peer_id: peer_id.to_string(),
+            },
+        )
+        .await
+    }
+
     async fn post_json<Request: Serialize, Response: serde::de::DeserializeOwned>(
         &self,
         path: &str,
@@ -822,6 +1003,10 @@ fn heartbeat_state(state: &GatewayRuntimeState) -> String {
         return "registered".to_string();
     }
     "starting".to_string()
+}
+
+fn default_supports_direct() -> bool {
+    true
 }
 
 fn append_json_line<T: Serialize>(path: &Path, value: &T) -> Result<(), std::io::Error> {
@@ -918,9 +1103,15 @@ mod tests {
     use openhanse_protocol::model::{
         connect_model::{ConnectDecisionModel, DirectConnectionInfoModel},
         peer_model::{PeerLookupResponseModel, PeerRecordModel},
+        relay_model::{
+            RelayAttachRequestModel, RelayAttachResponseModel, RelayMessageEnvelopeModel,
+            RelayPollRequestModel, RelayPollResponseModel, RelaySendRequestModel,
+            RelaySendResponseModel,
+        },
     };
-    use std::{collections::HashMap, sync::Arc};
+    use std::{collections::{HashMap, VecDeque}, sync::Arc};
     use tokio::sync::RwLock as TokioRwLock;
+    use uuid::Uuid;
 
     #[test]
     fn builds_register_request_from_profile() {
@@ -962,17 +1153,67 @@ mod tests {
         .await
         .expect("start runtime b");
 
-        let send = runtime_a
-            .send_message("hello from runtime a")
+        let target_url = join_url(&runtime_b.info().direct_base_url, DEFAULT_MESSAGE_ENDPOINT);
+        let payload =
+            runtime_a
+                .shared
+                .profile
+                .outbound_message("gateway-b", "hello from runtime a", current_unix_ms());
+        let response = reqwest::Client::new()
+            .post(target_url)
+            .json(&payload)
+            .send()
             .await
-            .expect("send direct message");
-        assert_eq!(send.delivery_mode, "direct");
+            .expect("post direct message");
+        assert!(response.status().is_success());
 
         tokio::time::sleep(Duration::from_millis(200)).await;
 
         let inbox = runtime_b.list_inbox().await;
         assert_eq!(inbox.len(), 1);
         assert_eq!(inbox[0].payload.message, "hello from runtime a");
+
+        runtime_a.stop().await.expect("stop runtime a");
+        runtime_b.stop().await.expect("stop runtime b");
+    }
+
+    #[tokio::test]
+    async fn relay_message_flow_works_between_two_runtimes() {
+        let hub = TestHub::start().await;
+        let mut runtime_a_config = runtime_config(
+            "gateway-a",
+            "gateway-b",
+            &hub.base_url,
+            unique_temp_dir("gateway-a-relay"),
+        );
+        runtime_a_config.supports_direct = false;
+
+        let mut runtime_b_config = runtime_config(
+            "gateway-b",
+            "gateway-a",
+            &hub.base_url,
+            unique_temp_dir("gateway-b-relay"),
+        );
+        runtime_b_config.supports_direct = false;
+
+        let runtime_a = GatewayRuntimeHandle::start(runtime_a_config)
+            .await
+            .expect("start runtime a");
+        let runtime_b = GatewayRuntimeHandle::start(runtime_b_config)
+            .await
+            .expect("start runtime b");
+
+        let send = runtime_a
+            .send_message("hello through relay")
+            .await
+            .expect("send relay message");
+        assert_eq!(send.delivery_mode, "relay");
+
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+
+        let inbox = runtime_b.list_inbox().await;
+        assert_eq!(inbox.len(), 1);
+        assert_eq!(inbox[0].payload.message, "hello through relay");
 
         runtime_a.stop().await.expect("stop runtime a");
         runtime_b.stop().await.expect("stop runtime b");
@@ -1016,6 +1257,7 @@ mod tests {
             server_base_url: server_base_url.to_string(),
             direct_bind_host: "127.0.0.1".to_string(),
             direct_bind_port: 0,
+            supports_direct: true,
             heartbeat_interval_secs: 60,
             storage_dir,
         }
@@ -1031,6 +1273,15 @@ mod tests {
     #[derive(Clone)]
     struct TestHubState {
         peers: Arc<TokioRwLock<HashMap<String, PeerRecordModel>>>,
+        relay_sessions: Arc<TokioRwLock<HashMap<Uuid, TestRelaySession>>>,
+    }
+
+    #[derive(Clone)]
+    struct TestRelaySession {
+        source_peer_id: String,
+        target_peer_id: String,
+        pending_for_source: VecDeque<RelayMessageEnvelopeModel>,
+        pending_for_target: VecDeque<RelayMessageEnvelopeModel>,
     }
 
     struct TestHub {
@@ -1041,12 +1292,16 @@ mod tests {
         async fn start() -> Self {
             let state = TestHubState {
                 peers: Arc::new(TokioRwLock::new(HashMap::new())),
+                relay_sessions: Arc::new(TokioRwLock::new(HashMap::new())),
             };
             let app = Router::new()
                 .route("/v1/peers/register", post(test_register_peer))
                 .route("/v1/peers/heartbeat", post(test_heartbeat_peer))
                 .route("/v1/peers/{peer_id}", get(test_lookup_peer))
                 .route("/v1/connect", post(test_connect_peer))
+                .route("/v1/relay/attach", post(test_relay_attach))
+                .route("/v1/relay/send", post(test_relay_send))
+                .route("/v1/relay/poll", post(test_relay_poll))
                 .with_state(state);
             let listener = TcpListener::bind(("127.0.0.1", 0))
                 .await
@@ -1121,14 +1376,110 @@ mod tests {
         let Some(peer) = peers.get(&request.target_peer_id) else {
             return Err(StatusCode::NOT_FOUND);
         };
-        Ok(Json(ConnectDecisionModel::Direct {
-            direct: DirectConnectionInfoModel {
-                peer_id: peer.peer_id.clone(),
-                device_key: peer.device_key.clone(),
-                display_name: peer.display_name.clone(),
-                direct_addresses: peer.direct_addresses.clone(),
-                message_endpoint: peer.message_endpoint.clone(),
+        if request.prefer_direct && peer.supports_direct && !peer.direct_addresses.is_empty() {
+            return Ok(Json(ConnectDecisionModel::Direct {
+                direct: DirectConnectionInfoModel {
+                    peer_id: peer.peer_id.clone(),
+                    device_key: peer.device_key.clone(),
+                    display_name: peer.display_name.clone(),
+                    direct_addresses: peer.direct_addresses.clone(),
+                    message_endpoint: peer.message_endpoint.clone(),
+                },
+            }));
+        }
+
+        let relay_session_id = Uuid::new_v4();
+        state.relay_sessions.write().await.insert(
+            relay_session_id,
+            TestRelaySession {
+                source_peer_id: request.source_peer_id.clone(),
+                target_peer_id: request.target_peer_id.clone(),
+                pending_for_source: VecDeque::new(),
+                pending_for_target: VecDeque::new(),
             },
+        );
+        Ok(Json(ConnectDecisionModel::relay(
+            openhanse_protocol::model::connect_model::RelayConnectionInfoModel {
+                relay_session_id,
+                source_peer_id: request.source_peer_id,
+                target_peer_id: request.target_peer_id,
+                expires_at_unix_ms: current_unix_ms() + 30_000,
+            },
+        )))
+    }
+
+    async fn test_relay_attach(
+        State(state): State<TestHubState>,
+        Json(request): Json<RelayAttachRequestModel>,
+    ) -> Result<Json<RelayAttachResponseModel>, StatusCode> {
+        let sessions = state.relay_sessions.read().await;
+        let Some(session) = sessions.get(&request.relay_session_id) else {
+            return Err(StatusCode::NOT_FOUND);
+        };
+        let counterpart = if request.peer_id == session.source_peer_id {
+            session.target_peer_id.clone()
+        } else if request.peer_id == session.target_peer_id {
+            session.source_peer_id.clone()
+        } else {
+            return Err(StatusCode::BAD_REQUEST);
+        };
+        Ok(Json(RelayAttachResponseModel {
+            accepted: true,
+            relay_session_id: request.relay_session_id,
+            peer_id: request.peer_id,
+            counterpart_peer_id: counterpart,
+            expires_at_unix_ms: current_unix_ms() + 30_000,
         }))
+    }
+
+    async fn test_relay_send(
+        State(state): State<TestHubState>,
+        Json(request): Json<RelaySendRequestModel>,
+    ) -> Result<Json<RelaySendResponseModel>, StatusCode> {
+        let mut sessions = state.relay_sessions.write().await;
+        let Some(session) = sessions.get_mut(&request.relay_session_id) else {
+            return Err(StatusCode::NOT_FOUND);
+        };
+        let (recipient_peer_id, queue) = if request.peer_id == session.source_peer_id {
+            (session.target_peer_id.clone(), &mut session.pending_for_target)
+        } else if request.peer_id == session.target_peer_id {
+            (session.source_peer_id.clone(), &mut session.pending_for_source)
+        } else {
+            return Err(StatusCode::BAD_REQUEST);
+        };
+        queue.push_back(RelayMessageEnvelopeModel {
+            relay_session_id: request.relay_session_id,
+            source_peer_id: request.payload.from_peer_id.clone(),
+            target_peer_id: request.payload.to_peer_id.clone(),
+            queued_at_unix_ms: current_unix_ms(),
+            payload: request.payload,
+        });
+        Ok(Json(RelaySendResponseModel {
+            accepted: true,
+            relay_session_id: request.relay_session_id,
+            recipient_peer_id,
+            queued_messages: queue.len(),
+        }))
+    }
+
+    async fn test_relay_poll(
+        State(state): State<TestHubState>,
+        Json(request): Json<RelayPollRequestModel>,
+    ) -> Result<Json<RelayPollResponseModel>, StatusCode> {
+        let mut sessions = state.relay_sessions.write().await;
+        let mut messages = Vec::new();
+        for session in sessions.values_mut() {
+            let queue = if request.peer_id == session.source_peer_id {
+                &mut session.pending_for_source
+            } else if request.peer_id == session.target_peer_id {
+                &mut session.pending_for_target
+            } else {
+                continue;
+            };
+            while let Some(message) = queue.pop_front() {
+                messages.push(message);
+            }
+        }
+        Ok(Json(RelayPollResponseModel { messages }))
     }
 }

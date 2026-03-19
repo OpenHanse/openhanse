@@ -1,4 +1,5 @@
 .DS_Store
-
+### BuildSystem ###
+*.oci.tar
 ### Rust & Cargo ###
 Source/Rust/**/target/

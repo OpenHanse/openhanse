@@ -42,6 +42,8 @@ pub struct GatewayWebRuntimeConfig {
     pub server_base_url: String,
     pub direct_bind_host: String,
     pub direct_bind_port: u16,
+    #[serde(default = "default_supports_direct")]
+    pub supports_direct: bool,
     pub ui_bind_port: u16,
     pub heartbeat_interval_secs: u64,
     pub storage_dir: PathBuf,
@@ -57,10 +59,15 @@ impl GatewayWebRuntimeConfig {
             server_base_url: self.server_base_url.clone(),
             direct_bind_host: self.direct_bind_host.clone(),
             direct_bind_port: self.direct_bind_port,
+            supports_direct: self.supports_direct,
             heartbeat_interval_secs: self.heartbeat_interval_secs,
             storage_dir: self.storage_dir.clone(),
         }
     }
+}
+
+fn default_supports_direct() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

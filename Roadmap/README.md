@@ -8,7 +8,7 @@ The first phase of OpenHanse development focuses on the first trustworthy real-w
 
 ## Phase 2: Direct Connection Optimization / MVP Stage 2
 
-The second phase builds on the reliable relay-backed MVP by improving how often direct communication succeeds. This phase focuses on reducing relay usage and hosting cost through better reachability decisions, direct-connect improvements, and NAT traversal work, while keeping relay as the fallback safety net.
+The second phase builds on the reliable relay-backed MVP by improving how often direct communication succeeds behind NAT. This phase focuses on reducing relay usage and hosting cost through better reachability decisions, NAT traversal work, and direct-connect improvements, while keeping relay as the fallback safety net. The target validation scenario is direct communication between `openhanse-apple` on 5G and `openhanse-gateway-cli` inside a private local network.
 
 ## Phase 3: Hardening
 

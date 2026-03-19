@@ -95,8 +95,14 @@ pub struct GatewayWebRuntimeStatusModel {
     pub last_registered_at_unix_ms: Option<u64>,
     pub last_heartbeat_at_unix_ms: Option<u64>,
     pub last_error: Option<String>,
+    pub last_delivery_mode: Option<String>,
+    pub last_delivery_summary: Option<String>,
     pub inbox_count: usize,
     pub event_count: usize,
+    pub direct_sent_count: usize,
+    pub relay_sent_count: usize,
+    pub direct_received_count: usize,
+    pub relay_received_count: usize,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -205,8 +211,14 @@ impl GatewayWebRuntimeHandle {
             last_registered_at_unix_ms: core_status.last_registered_at_unix_ms,
             last_heartbeat_at_unix_ms: core_status.last_heartbeat_at_unix_ms,
             last_error: core_status.last_error,
+            last_delivery_mode: core_status.last_delivery_mode,
+            last_delivery_summary: core_status.last_delivery_summary,
             inbox_count: core_status.inbox_count,
             event_count: core_status.event_count,
+            direct_sent_count: core_status.direct_sent_count,
+            relay_sent_count: core_status.relay_sent_count,
+            direct_received_count: core_status.direct_received_count,
+            relay_received_count: core_status.relay_received_count,
         }
     }
 

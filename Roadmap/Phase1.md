@@ -85,6 +85,13 @@ The intended deployment picture for Phase 1 should be:
 - `openhanse-cli` runs on a MacBook inside a home or office LAN
 - the hub coordinates discovery and, when needed, relays traffic between both devices
 
+This deployment picture is now also the verified relay-backed reference setup for Phase 1:
+
+- `openhanse-hub` running on a public Linux server
+- `openhanse-apple` running on iPhone over 5G in relay mode
+- `openhanse-gateway-cli` running in relay mode against the same public hub
+- successful bidirectional text messaging through the hub relay path
+
 ## Initial Interface Decisions
 
 The first control-plane design should be organized around these concepts:
@@ -114,6 +121,26 @@ The MVP gateway client runtime should support these operations at a planning lev
 - attach to a relay session when direct delivery is not possible
 - receive relay-backed messages through the same runtime and inbox flow used for direct messages
 
+### Basic State Transitions
+
+Peer presence state:
+
+- `offline` -> `registered` when a peer completes registration with the hub
+- `registered` -> `online` after the first successful heartbeat refresh
+- `registered` or `online` -> `offline` when the presence lease expires or the hub restarts
+- `offline` -> `registered` again when the peer re-registers after expiry or restart
+
+Relay session state:
+
+- `created` when the hub returns a relay-backed `ConnectDecision`
+- `source_attached` or `target_attached` when either peer attaches first
+- `paired` when both peers have attached to the same relay session
+- `active` while queued relay messages are pending for either side
+- `finished` once both peers have attached and all pending relay queues are drained
+- `expired` if the session stays idle long enough to miss the relay timeout before completion
+
+These transitions are intentionally simple for MVP Stage 1. The hub keeps all presence and relay session state in memory, uses timeouts as the main recovery mechanism, and expects peers to reconnect or recreate sessions when state is lost.
+
 The first transport assumptions should be:
 
 - use an HTTP-friendly control-plane protocol for registration and connect negotiation
@@ -134,7 +161,7 @@ Wire format, final schema details, and full cryptographic protocol design should
 ### Phase 1.0: Message flow sketch
 
 - [x] Write the control-plane message sketch for registration, heartbeat, connect negotiation, and relay pairing.
-- [ ] Define basic peer and relay session state transitions.
+- [x] Define basic peer and relay session state transitions.
 - [x] Draw a simple sequence diagram for direct-first chat delivery with relay fallback.
 - [x] Sketch the gateway message endpoint shape for receiving a text message.
 
@@ -158,20 +185,43 @@ Wire format, final schema details, and full cryptographic protocol design should
 - [x] Move the reusable gateway runtime into the shared `openhanse-gateway-core` crate.
 - [x] Split the host-facing REST, web UI, and C ABI layer into `openhanse-gateway-web`.
 - [x] Prove the shared runtime through both `openhanse-gateway-cli` and the first Apple app shell.
-- [ ] Implement relay session transport using `RelaySessionId`.
-- [ ] Allow both peers to attach to the same relay session.
-- [ ] Forward chat payloads between both peers once paired.
-- [ ] Add a relay receive loop to the shared gateway runtime.
-- [ ] Surface relay-backed messages through the same inbox and event flow used for direct messages.
-- [ ] Fall back to relay automatically when direct delivery fails or is not possible.
-- [ ] Validate the primary target scenario: iPhone on mobile data reaches a MacBook inside a private LAN through the Linux-hosted hub.
-- [ ] Validate reverse communication: the MacBook can send a message back to the iPhone in the same setup.
+- [x] Implement relay session transport using `RelaySessionId`.
+- [x] Allow both peers to attach to the same relay session.
+- [x] Forward chat payloads between both peers once paired.
+- [x] Add a relay receive loop to the shared gateway runtime.
+- [x] Surface relay-backed messages through the same inbox and event flow used for direct messages.
+- [x] Fall back to relay automatically when direct delivery fails or is not possible.
+- [x] Validate the primary target scenario: iPhone on mobile data reaches a MacBook inside a private LAN through the Linux-hosted hub.
+- [x] Validate reverse communication: the MacBook can send a message back to the iPhone in the same setup.
 
 ### Phase 1.4: Minimal hardening for MVP Stage 1
 
-- [ ] Add enough logs and status information to understand whether a message used direct delivery or relay.
-- [ ] Improve cleanup for stale peers, abandoned negotiations, and idle relay sessions.
-- [ ] Document the canonical deployment and validation flow for the Linux hub, MacBook CLI, and iPhone app.
+- [x] Add enough logs and status information to understand whether a message used direct delivery or relay.
+- [x] Improve cleanup for stale peers, abandoned negotiations, and idle relay sessions.
+- [x] Document the canonical deployment and validation flow for the Linux hub, MacBook CLI, and iPhone app.
+
+## Canonical Deployment And Validation Flow
+
+The canonical Phase 1 deployment is:
+
+- `openhanse-hub` on a public Linux server reachable over TCP
+- `openhanse-apple` on iPhone with the hub URL pointing at that public server
+- `openhanse-gateway-cli` on a MacBook using the same hub URL
+
+Recommended validation order:
+
+1. Start the hub and confirm `GET /health` works from another machine.
+2. Start the iPhone app and confirm it registers successfully with the hub.
+3. Start the Rust CLI and confirm it registers successfully with the same hub.
+4. Set both clients to `relay` mode first and verify bidirectional text messaging.
+5. Switch one or both clients to `direct` mode only when a real direct address is expected to be reachable.
+6. Use the client status view and event log to confirm whether a message used `direct` or `relay`.
+
+Operational expectations for Phase 1:
+
+- Relay mode is the reference configuration for NAT-separated or cross-network tests.
+- Direct mode is a preferred optimization for clearly reachable peers, not a requirement for success.
+- If the hub restarts, clients recover by registering again and creating fresh relay sessions as needed.
 
 ## Non-Goals
 
@@ -190,6 +240,7 @@ MVP Stage 1 should explicitly not aim for:
 
 - An iPhone on a mobile connection can send a message to a MacBook inside a private LAN through the hub.
 - A MacBook inside a private LAN can send a message back to an iPhone on a mobile connection through the hub.
+- The same relay-backed setup also works with `openhanse-hub` on a public Linux server, `openhanse-apple` on 5G in relay mode, and `openhanse-gateway-cli` in relay mode.
 - The target NAT-separated setup succeeds without depending on hole punching.
 - When two peers are clearly directly reachable, a direct peer-to-peer delivery attempt is still preferred.
 - Two gateways behind NAT or on different networks can still exchange messages through the hub.

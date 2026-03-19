@@ -201,8 +201,14 @@ pub struct GatewayRuntimeStatusModel {
     pub last_registered_at_unix_ms: Option<u64>,
     pub last_heartbeat_at_unix_ms: Option<u64>,
     pub last_error: Option<String>,
+    pub last_delivery_mode: Option<String>,
+    pub last_delivery_summary: Option<String>,
     pub inbox_count: usize,
     pub event_count: usize,
+    pub direct_sent_count: usize,
+    pub relay_sent_count: usize,
+    pub direct_received_count: usize,
+    pub relay_received_count: usize,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -268,9 +274,15 @@ struct GatewayRuntimeState {
     last_heartbeat_at_unix_ms: Option<u64>,
     lease_seconds: Option<u64>,
     last_error: Option<String>,
+    last_delivery_mode: Option<String>,
+    last_delivery_summary: Option<String>,
     inbox: Vec<InboxEntryModel>,
     events: Vec<UiEventModel>,
     next_event_id: u64,
+    direct_sent_count: usize,
+    relay_sent_count: usize,
+    direct_received_count: usize,
+    relay_received_count: usize,
 }
 
 #[derive(Clone)]
@@ -313,9 +325,15 @@ impl GatewayRuntimeHandle {
                 last_heartbeat_at_unix_ms: None,
                 lease_seconds: None,
                 last_error: None,
+                last_delivery_mode: None,
+                last_delivery_summary: None,
                 inbox,
                 events,
                 next_event_id,
+                direct_sent_count: 0,
+                relay_sent_count: 0,
+                direct_received_count: 0,
+                relay_received_count: 0,
             }),
             hub_client,
             shutdown_tx,
@@ -379,8 +397,14 @@ impl GatewayRuntimeHandle {
             last_registered_at_unix_ms: state.last_registered_at_unix_ms,
             last_heartbeat_at_unix_ms: state.last_heartbeat_at_unix_ms,
             last_error: state.last_error.clone(),
+            last_delivery_mode: state.last_delivery_mode.clone(),
+            last_delivery_summary: state.last_delivery_summary.clone(),
             inbox_count: state.inbox.len(),
             event_count: state.events.len(),
+            direct_sent_count: state.direct_sent_count,
+            relay_sent_count: state.relay_sent_count,
+            direct_received_count: state.direct_received_count,
+            relay_received_count: state.relay_received_count,
         }
     }
 
@@ -524,6 +548,14 @@ impl GatewayRuntimeHandle {
                     .await
                 {
                     Ok(_) => {
+                        self.remember_delivery(
+                            "direct",
+                            format!(
+                                "Sent direct message to {} via {}.",
+                                self.shared.config.target_peer_id, target_url
+                            ),
+                        )
+                        .await;
                         self.record_event(
                             "message_sent",
                             format!("Sent message to {}.", self.shared.config.target_peer_id),
@@ -650,6 +682,16 @@ impl GatewayRuntimeHandle {
         {
             let mut state = self.shared.state.write().await;
             state.inbox.push(entry);
+            state.last_delivery_mode = Some(delivery_mode.to_string());
+            state.last_delivery_summary = Some(format!(
+                "Received {} message from {}.",
+                delivery_mode, payload.from_peer_id
+            ));
+            match delivery_mode {
+                "direct" => state.direct_received_count += 1,
+                "relay" => state.relay_received_count += 1,
+                _ => {}
+            }
         }
         self.record_event(
             "message_received",
@@ -738,6 +780,14 @@ impl GatewayRuntimeHandle {
             .hub_client
             .send_relay_message(relay.relay_session_id, &self.shared.profile.peer_id, &payload)
             .await?;
+        self.remember_delivery(
+            "relay",
+            format!(
+                "Sent relay message to {} using session {}.",
+                payload.to_peer_id, relay.relay_session_id
+            ),
+        )
+        .await;
         self.record_event(
             "message_sent",
             format!(
@@ -759,6 +809,17 @@ impl GatewayRuntimeHandle {
             state.last_error = Some(error.to_string());
         }
         self.record_event("error", error.to_string()).await
+    }
+
+    async fn remember_delivery(&self, delivery_mode: &str, summary: String) {
+        let mut state = self.shared.state.write().await;
+        state.last_delivery_mode = Some(delivery_mode.to_string());
+        state.last_delivery_summary = Some(summary);
+        match delivery_mode {
+            "direct" => state.direct_sent_count += 1,
+            "relay" => state.relay_sent_count += 1,
+            _ => {}
+        }
     }
 
     async fn record_event(&self, kind: impl Into<String>, message: impl Into<String>) -> Result<(), String> {

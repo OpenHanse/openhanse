@@ -92,15 +92,22 @@ class OpenHanseStatus extends HTMLElement {
       rows.push(["server", this.status.server_base_url]);
       rows.push(["direct", `${this.status.direct_base_url}${this.status.message_endpoint}`]);
       rows.push(["heart", this.status.heartbeat_state, heartbeatClassName(this.status.heartbeat_state)]);
+      rows.push(["mode", this.status.last_delivery_mode ?? "n/a"]);
       rows.push(["inbox", String(this.inboxCount)]);
 
       if (this.status.last_error) {
         rows.push(["error", this.status.last_error, "error"]);
       }
 
+      if (this.status.last_delivery_summary) {
+        rows.push(["last", this.status.last_delivery_summary]);
+      }
+
       meta.textContent = [
         this.staticLine,
         `events ${this.status.event_count}`,
+        `sent d:${this.status.direct_sent_count} r:${this.status.relay_sent_count}`,
+        `recv d:${this.status.direct_received_count} r:${this.status.relay_received_count}`,
         this.status.display_name ? `name ${this.status.display_name}` : ""
       ].filter(Boolean).join("  |  ");
     } else {

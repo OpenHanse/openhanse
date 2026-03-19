@@ -4,6 +4,14 @@ OpenHanse is an experiment in direct distribution of tools, services, and inform
 
 > **Current Status**: OpenHanse is still at an early stage and currently focused on defining the vision, exploring the problem space, and building a first prototype.
 
+For agentic readers please take a look at the following files:
+
+- [CONTEXT.md](./CONTEXT.md): A more detailed exploration of the problem space, design goals, and vision for OpenHanse.
+- [AGENTS.md](./AGENTS.md): A technical overview of the project structure, source of truth, working rules, and technical stack for agents working on OpenHanse.
+- [INSPIRATION.md](./INSPIRATION.md): A collection of related projects, technologies, and ideas that have inspired the OpenHanse vision and design.
+
+Feel free to also continue reading this README for a more concise overview of the project, even if it's targeting human readers.
+
 ## What Is The Problem?
 
 Thanks to the rise of AI, more people than ever can create software. But distribution, data exchange, and access are still bottlenecks that often require significant effort and expertise.

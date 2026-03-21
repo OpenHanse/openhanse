@@ -1,6 +1,6 @@
 # OpenHanse / Build System / Container
 
-This build system packages reusable container images for OpenHanse modules. It currently targets the Apple `container` CLI on macOS and exports OCI-compatible tarballs into `Output`.
+This build system packages reusable container images for OpenHanse modules. It currently targets the Apple `container` CLI on macOS and exports OCI-compatible tarballs into `Artefact`.
 
 The initial container image here is:
 
@@ -40,13 +40,13 @@ This will:
 
 - build the image from `Source/rust-linux`
 - tag it as `rust-linux:<version>-<arch>`
-- export it into `Output` as `rust-linux_<version>_<arch>.oci.tar`
+- export it into `Artefact` as `rust-linux_<version>_<arch>.oci.tar`
 
-## Output
+## Artefact
 
 Built OCI archives are written to:
 
-- `Output/*.oci.tar`
+- `Artefact/*.oci.tar`
 
 These tarballs can later be loaded into a compatible container runtime or published as OCI artifacts.
 

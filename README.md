@@ -31,21 +31,21 @@ The long-term vision is an open stack for discovering, distributing, and running
 The current implementation path is intentionally smaller:
 
 - `openhanse-core`: the shared Rust runtime that combines wire models, gateway behavior, and hub capabilities
-- `openhanse-cli`: the command-line gateway flavor built on `openhanse-core`
+- `openhanse-cli`: the command-line peer runtime built on `openhanse-core`
 - `openhanse-gui`: the host-facing Rust library with REST API, bundled web UI, and public C ABI
 - `openhanse-apple`: the first native host app embedding `openhanse-gui`
 
-Phase 1 still focuses on proving the communication model end to end before broad platform rollout. The current refactor moves the Rust side toward a cleaner shared core and a single peer runtime that can run in `gateway`, `hub`, or `both` mode.
+The current focus is still a small but real communication MVP before broader platform rollout. The Rust side now uses a shared core and a unified peer runtime that can run in `gateway`, `hub`, or `both` mode.
 The main Rust crates now live directly inside this repository under `Source/openhanse-core`, `Source/openhanse-cli`, and `Source/openhanse-gui`.
 
 ## Shared Rust Architecture
 
 ```mermaid
 graph TD
-    Core["openhanse-core<br/>Shared wire models + gateway runtime + hub capabilities"]
-    Cli["openhanse-gateway-cli<br/>Command-line gateway"]
-    Gui["openhanse-gui<br/>REST API + web UI + C ABI"]
-    Apple["openhanse-apple<br/>Swift host app with WKWebView"]
+    Core["<b>openhanse-core</b><br/>Shared runtime, models and business logic"]
+    Cli["<b>openhanse-cli</b><br/>Command line interface"]
+    Gui["<b>openhanse-gui</b><br/>Graphical interface"]
+    Apple["<b>openhanse-apple</b><br/>iOS, iPadOS & macOS App"]
 
     Core --> Cli
     Core --> Gui
@@ -54,14 +54,14 @@ graph TD
 
 ## Basic Communication
 
-The Phase 1 MVP is built around a direct-first communication model: gateways register with the OpenHanse server, keep their presence alive, and ask the server whether a message should go directly to another gateway or fall back to a relay session.
+The current MVP is built around a direct-first communication model: peers register with the OpenHanse hub, keep their presence alive, and ask the shared runtime whether a message should go directly to another peer or fall back to a relay session.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant GatewayA as Gateway A
-    participant Server as OpenHanse Server
-    participant GatewayB as Gateway B
+    participant GatewayA as Peer A
+    participant Server as OpenHanse Hub
+    participant GatewayB as Peer B
 
     GatewayA->>Server: Register peer and direct endpoint
     GatewayB->>Server: Register peer and direct endpoint
@@ -74,7 +74,7 @@ sequenceDiagram
     GatewayA->>Server: Request connection to Gateway B
 
     alt Direct path available
-        Server-->>GatewayA: Return Gateway B direct address
+        Server-->>GatewayA: Return Peer B direct address
         GatewayA->>GatewayB: Send message directly
         GatewayB-->>GatewayA: Respond directly
     else Direct path unavailable

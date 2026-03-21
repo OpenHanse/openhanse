@@ -8,12 +8,13 @@ Build the Linux binary from the main repository:
 
 ```bash
 cd openhanse/Source/openhanse-cli
-cargo build --release
+./BuildOpenHanseCli.sh
 ```
 
-This produces the CLI binary:
+This produces artifacts such as:
 
-- `openhanse/Source/openhanse-cli/target/release/openhanse_gateway_cli`
+- `openhanse/Source/openhanse-cli/Artefact/openhanse-cli-linux-x86_64`
+- `openhanse/Source/openhanse-cli/Artefact/openhanse-cli-linux-aarch64`
 
 This deploy example uploads that binary and runs it in `--peer-mode hub`.
 

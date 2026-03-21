@@ -6,8 +6,8 @@ use axum::{
     routing::{get, post},
 };
 use openhanse_gateway_core::{
-    ErrorResponseModel, GatewayRuntimeConfig, GatewayRuntimeHandle, InboxEntryModel,
-    SendMessageRequestModel, SendMessageResponseModel, UiEventModel,
+    CommunicationModeEnum, ErrorResponseModel, GatewayRuntimeConfig, GatewayRuntimeHandle,
+    InboxEntryModel, SendMessageRequestModel, SendMessageResponseModel, UiEventModel,
 };
 use openhanse_protocol::model::{
     connect_model::ConnectDecisionModel, peer_model::PeerLookupResponseModel,
@@ -42,8 +42,8 @@ pub struct GatewayWebRuntimeConfig {
     pub server_base_url: String,
     pub direct_bind_host: String,
     pub direct_bind_port: u16,
-    #[serde(default = "default_supports_direct")]
-    pub supports_direct: bool,
+    #[serde(default = "default_communication_mode")]
+    pub communication_mode: CommunicationModeEnum,
     pub ui_bind_port: u16,
     pub heartbeat_interval_secs: u64,
     pub storage_dir: PathBuf,
@@ -59,15 +59,15 @@ impl GatewayWebRuntimeConfig {
             server_base_url: self.server_base_url.clone(),
             direct_bind_host: self.direct_bind_host.clone(),
             direct_bind_port: self.direct_bind_port,
-            supports_direct: self.supports_direct,
+            communication_mode: self.communication_mode,
             heartbeat_interval_secs: self.heartbeat_interval_secs,
             storage_dir: self.storage_dir.clone(),
         }
     }
 }
 
-fn default_supports_direct() -> bool {
-    true
+fn default_communication_mode() -> CommunicationModeEnum {
+    CommunicationModeEnum::Auto
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -86,6 +86,7 @@ pub struct GatewayWebRuntimeStatusModel {
     pub peer_id: String,
     pub display_name: Option<String>,
     pub target_peer_id: String,
+    pub communication_mode: String,
     pub server_base_url: String,
     pub direct_base_url: String,
     pub message_endpoint: String,
@@ -202,6 +203,7 @@ impl GatewayWebRuntimeHandle {
             peer_id: core_status.peer_id,
             display_name: core_status.display_name,
             target_peer_id: core_status.target_peer_id,
+            communication_mode: core_status.communication_mode,
             server_base_url: core_status.server_base_url,
             direct_base_url: core_status.direct_base_url,
             message_endpoint: core_status.message_endpoint,

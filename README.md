@@ -1,4 +1,8 @@
-# OpenHanse
+# OpenHanse - README.md
+
+This document is written for human readers. Agentic readers (e.g., AI agents) should refer to [PARSEME.md](./PARSEME.md) for a more structured overview of the project structure, source of truth, working rules, and technical stack for contributing to OpenHanse.
+
+## What Is OpenHanse?
 
 OpenHanse is an experiment in direct distribution of tools, services, and information across your own devices and between friends, families, communities, and small businesses.
 
@@ -8,7 +12,7 @@ For agentic readers please take a look at the following files:
 
 - [CONTEXT.md](./CONTEXT.md): A more detailed exploration of the problem space, design goals, and vision for OpenHanse.
 - [AGENTS.md](./AGENTS.md): A technical overview of the project structure, source of truth, working rules, and technical stack for agents working on OpenHanse.
-- [INSPIRATION.md](./INSPIRATION.md): A collection of related projects, technologies, and ideas that have inspired the OpenHanse vision and design.
+- [INSPIRATIONS.md](./INSPIRATIONS.md): A collection of related projects, technologies, and ideas that have inspired the OpenHanse vision and design.
 
 Feel free to also continue reading this README for a more concise overview of the project, even if it's targeting human readers.
 

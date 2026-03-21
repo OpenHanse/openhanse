@@ -16,7 +16,7 @@ usage() {
   cat <<EOF
 Usage: $0
 
-Starts a local three-terminal OpenHanse test run on macOS:
+Starts a local three-window OpenHanse test run on macOS using Apple Terminal only:
   1. hub
   2. gateway-a
   3. gateway-b
@@ -61,23 +61,6 @@ applescript_escape() {
   printf '%s' "$value"
 }
 
-launch_terminal_window() {
-  local label="$1"
-  local command="$2"
-  local escaped
-
-  escaped="$(applescript_escape "$command")"
-
-  osascript <<EOF
-tell application "Terminal"
-  activate
-  do script "$escaped"
-end tell
-EOF
-
-  echo "Launched $label"
-}
-
 build_terminal_command() {
   local label="$1"
   local logfile="$2"
@@ -97,6 +80,23 @@ build_terminal_command() {
     "$BINARY_PATH" \
     "${quoted_args[*]}" \
     "$logfile"
+}
+
+launch_terminal_window() {
+  local label="$1"
+  local command="$2"
+  local escaped
+
+  escaped="$(applescript_escape "$command")"
+
+  osascript <<EOF
+tell application "Terminal"
+  activate
+  do script "$escaped"
+end tell
+EOF
+
+  echo "Launched $label"
 }
 
 HUB_LOG="$RUN_DIR/hub.log"

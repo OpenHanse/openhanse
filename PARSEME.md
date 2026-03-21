@@ -1,53 +1,52 @@
 # OpenHanse - PARSEME.md
 
-This document is written for agentic workers (e.g., AI agents) who want to understand the project structure, source of truth, working rules, and technical stack for contributing to OpenHanse. It serves as a starting guide for navigating the various repositories and understanding the core principles that govern the project.
+This document is written for agentic workers who need a compact overview of the OpenHanse project structure, source of truth, working rules, and technical stack. Use it as a navigation guide before making changes across the OpenHanse repositories.
 
 ## Key Facts
 
 - Project: OpenHanse
-- Goal: Exploring technical and economic opportunities for an open, independent, and distributed software ecosystem.
+- Goal: Explore technical and economic opportunities for an open, independent, and distributed software ecosystem.
 - Domain: https://openhanse.org (https://openhanse.com is a redirect)
 
 ## Project Structure
 
-As a technical project, OpenHanse consists of multiple repositories that serve different purposes. Each repository has its own focus and codebase, but they all contribute to the overall vision of OpenHanse.
+OpenHanse consists of multiple repositories with different roles. Each repository has its own codebase and scope, but they contribute to the same overall vision.
 
-- `openhanse`: This repository is like a general project management repository.
-- `openhanse-apple`: This repository is containing the source code for the Apple gateway app (iOS, iPadOS and macOS).
-- `openhanse-android`: This repository is containing the source code for the Android gateway app. (Not started yet, but planned for the future.)
-- `openhanse-windows`: This repository is containing the source code for the Windows gateway app. (Not started yet, but planned for the future.)
-- `openhanse-linux`: This repository is containing the source code for the Linux gateway app. (Not started yet, but planned for the future.)
-- `openhanse-hub`: This repository is containing the source code for the OpenHanse hub components acting as connection point for the gateway apps.
+- `openhanse`: Project-level repository for planning, documentation, shared vision, and cross-repository coordination.
+- `openhanse-apple`: Source code for the Apple gateway app on iOS, iPadOS, and macOS.
+- `openhanse-hub`: Source code for the OpenHanse hub components that act as rendezvous and relay infrastructure for gateways.
+- `openhanse-android`: Planned repository for the Android gateway app. Not started yet.
+- `openhanse-windows`: Planned repository for the Windows gateway app. Not started yet.
+- `openhanse-linux`: Planned repository for the Linux gateway app. Not started yet.
 
 ### Source Of Truth
 
-Each repository has can have a set of common files containing important information about the respective repository and the project as a whole. These files include:
+Repositories may contain a shared set of documentation files. These files are the primary source of truth for contributors and agents:
 
-- `README.md`: A general overview of the repository, its purpose, and how it fits into the overall project. Written for human readers.
-- `PARSEME.md`: A version of the README.md that is specifically formatted for agentic readers, containing structured information about the repository and its role in the project.
-- `CONTEXT.md`: A more detailed exploration of the problem space, design goals, and the vision. This file provides deeper insights into the repository's purpose and how it contributes to the overall project vision.
-- `INSPIRATIONS.md`: A collection of related projects, technologies, and ideas that have inspired the repository's design and implementation. This file can provide context on the influences and motivations behind the repository's and/or project development.
+- `README.md`: General overview of the repository, its purpose, and how it fits into OpenHanse. Written for human readers.
+- `PARSEME.md`: Structured summary for agentic readers, focused on project layout, source-of-truth files, and technical direction.
+- `CONTEXT.md`: Deeper explanation of the problem space, design goals, and overall vision.
+- `INSPIRATIONS.md`: Related projects, technologies, and ideas that influenced the repository and project direction.
 
 ## Contributing
 
-Contributions to OpenHanse are welcome and encouraged. If you're interested in contributing, please follow these guidelines:
+Contributions to OpenHanse are welcome. Before making changes:
 
-- Familiarize yourself with the project structure and the specific repository you want to contribute to by reading the relevant `README.md`, `PARSEME.md`, `CONTEXT.md`, and `INSPIRATIONS.md` files.
-- If you want to contribute code, please follow the following guidelines:
-  - provide proactive and constructive feedback on the task like pointing out potential issues or proposing alternatives
-  - always prefer common and simpile solutions over complex ones
-  - avoid solutions which ties the project to specific platforms, technologies, or companies
-  - do not introduce new dependencies without approval
+- Read the relevant `README.md`, `PARSEME.md`, `CONTEXT.md`, and `INSPIRATIONS.md` files for the repository you are changing.
+- Provide proactive and constructive feedback when you see risks, unclear assumptions, or simpler alternatives.
+- Prefer simple, common solutions over complex ones.
+- Avoid solutions that tie the project unnecessarily to a specific platform, technology, or company.
+- Do not introduce new dependencies without approval.
 
-### Technical Stack
+### Technical Stack
 
-The technical stack for the OpenHanse project is mainly based on platform-agnostic technologies to ensure broad compatibility and ease of contribution. The primary languages and technologies used across the repositories include:
+The OpenHanse technical stack is centered on platform-agnostic technologies to preserve portability and keep contribution paths simple. Primary technologies include:
 
 - **Rust** for the business logic, core components, and shared libraries
 - **HTML/CSS/JavaScript** for user interfaces
 
-Platform-specific code should be kept to a minimum and just used if needed to deliver the Rust or web-based platform-agnostic code. For example:
+Platform-specific code should stay minimal and mainly serve as a host for the shared Rust and web-based layers. Examples:
 
-- **Swift** for Apple platforms, to launch a WKWebView and launch the Rust code
-- **Kotlin** for Android, to launch a WebView and launch the Rust code
-- **C#** for the Windows gateway app, to launch a web-based user interface and launch the Rust code
+- **Swift** for Apple platforms, to host a `WKWebView` and bridge to Rust code
+- **Kotlin** for Android, to host a `WebView` and bridge to Rust code
+- **C#** for Windows, to host a web-based user interface and bridge to Rust code

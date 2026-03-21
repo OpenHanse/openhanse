@@ -1,19 +1,14 @@
 # OpenHanse - Context
 
-This document provides context and background information about the OpenHanse project, including its motivation, goals, technologies, and terminology. It is intended to help agentic readers understand the vision and purpose of OpenHanse.
+This document provides background on the OpenHanse project, including its motivation, goals, technologies, and terminology. It is intended to help readers understand the vision and purpose of OpenHanse.
 
-## Inspiration
+## Background
 
-Inspired by the Hanseatic League, OpenHanse is a modern digital infrastructure that fosters collaboration and trust among local businesses, communities, and individuals. Just as the Hanseatic League facilitated trade and mutual protection among its members, OpenHanse aims to create a decentralized network that empowers participants to connect, share, and collaborate without relying on centralized platforms or gatekeepers. The name reflects the project's commitment to openness, cooperation, and independence in the digital age.
-
-Several existing technologies and platforms have also influenced OpenHanse, including:
-
-- **RustDesk** which is an open-source remote desktop software that allows users to connect and control their devices remotely. It uses a peer-to-peer architecture to enable direct communication between devices, which can be beneficial for performance and privacy.
-- **AliPay** which is a popular mobile payment platform in China that also offers a web-based solution for applications on their platform. It allows developers to create "Mini Programs" that run within the AliPay app, providing a way to reach users without going through traditional app stores.
+Inspired by the Hanseatic League, OpenHanse is a modern digital infrastructure focused on collaboration and trust among local businesses, communities, and individuals. Just as the Hanseatic League supported trade and mutual protection among its members, OpenHanse aims to create a decentralized network that helps participants connect, share, and collaborate without relying on centralized platforms or gatekeepers. The name reflects the project's commitment to openness, cooperation, and independence in the digital age.
 
 ## Principles
 
-The OpenHanse project is guided by several core principles that shape its design and development:
+The OpenHanse project is guided by several core principles:
 
 - **Decentralization**: Supporting self-hosting and peer-to-peer communication to reduce reliance on centralized platforms and services.
 - **Open source**: Building in the open with transparent code, shared standards, and the ability for others to inspect, adapt, and contribute.
@@ -24,17 +19,18 @@ The OpenHanse project is guided by several core principles that shape its design
 
 ## Terminology
 
-This list contains terms that are related to OpenHanse and may be used in the context of the project.
+This list contains terms commonly used in the OpenHanse project.
 
 - **Gateway** can be an application or service that provides access to the OpenHanse network.
-- **Bazaar** is a term that can refer to a marketplace or a place where goods and services are exchanged originally from the Middle East.
+- **Bazaar** refers to a marketplace or exchange space and is used here as a conceptual term for distribution or trade.
 - **Fediverse** (Federated universe) is a collection of interconnected servers that communicate with each other using a common protocol.
 - **Peer** is a participant in the OpenHanse network. A peer can be an individual, a business, a community, or any entity that connects to the network to share resources, services, or information.
 
 ## Candidate Technologies
+
 - **ActivityPub** is a federation protocol for social or publishing-oriented parts of the ecosystem.
 - **WASM** (WebAssembly) is a portable runtime for application logic across browsers and other supported environments.
-- **Rendezvous** is a peer discovery pattern for finding services, relays and other participants.
+- **Rendezvous** is a peer discovery pattern for finding services, relays, and other participants.
 - **Relay Server** is a public peer that forwards traffic when direct communication is not possible.
 - **DCUtR** is a hole-punching approach for establishing direct peer-to-peer connections through NAT.
 - **AutoNAT** is a method for determining whether a peer is reachable directly or behind NAT.
@@ -70,12 +66,12 @@ Examples:
 
 ## Domains
 
-**OpenHanse.org** is the official domain for the organisation, where all official information, documentation, and resources related to OpenHanse will be hosted in the future while **OpenHanse.com** will redirect to OpenHanse.org to avoid fraud and confusion. The project may also use subdomains for specific services or applications in the future.
+**OpenHanse.org** is the official domain for the organization. Official information, documentation, and project resources will be hosted there over time. **OpenHanse.com** will redirect to `OpenHanse.org` to reduce fraud and confusion. The project may also use subdomains for specific services or applications in the future.
 
 ## Current Non-Goals
 
-Beside of the general goals mentioned in the project vision, there are some specific use-cases that are currently considered out of scope for OpenHanse:
+Besides the general goals described in the project vision, some use cases are currently out of scope for OpenHanse:
 
-- Being a public system/website for an specific use-case (e.g. marketplace, social network, file sharing, payment solution, etc.)
-- Being a public system for anonymous communication or exchange (e.g. Tor-like network, cryptocurrency, etc.)
-- Being a VPN or proxy service (e.g. for geo-bypassing, etc.)
+- being a public system or website for a single specific use case such as a marketplace, social network, file sharing system, or payment solution
+- being a public system for anonymous communication or anonymous exchange such as a Tor-like network or cryptocurrency system
+- being a VPN or proxy service for geo-bypassing or similar use cases

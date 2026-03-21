@@ -17,3 +17,7 @@ In this phase OpenHanse will move from the staged MVP work toward a more product
 ## Phase 4 And Beyond
 
 Future phases will be guided by learnings from the initial implementation and user feedback.
+
+## Future Ideas
+
+- [SSH And Peer Service Addons](./FutureIdeas-SSH-And-Peer-Services.md): a short note about treating SSH as an optional peer service addon on supported platforms such as Linux and macOS, alongside the higher-level gateway features.

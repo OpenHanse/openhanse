@@ -28,6 +28,8 @@ This means the current baseline is no longer "build the first relay-backed MVP".
 
 The current goal is:
 
+- move from optimistic direct attempts toward explicit NAT-aware connection setup
+- build the remaining pieces required for full UDP hole punching
 - improve how often direct communication succeeds in real NAT-separated scenarios
 - reduce dependence on relay traffic where it is safe and worthwhile
 - keep relay as the guaranteed recovery and fallback path
@@ -61,13 +63,14 @@ This architecture should now be treated as the source of truth for implementatio
 
 ### 1. Direct Reachability Quality
 
-The runtime should become better at deciding which direct addresses are actually useful.
+The runtime should become better at deciding which direct addresses are actually useful and which ones are only local or observational hints.
 
 Work in this area includes:
 
 - improving advertised reachability data
 - separating local bind addresses from externally useful direct hints
 - reducing obviously wrong or stale direct advertisements
+- avoiding false-positive direct TCP assumptions based only on hub-observed registration source addresses
 - keeping relay-only operation available for diagnostics
 
 ### 2. Connection Decision Quality
@@ -78,6 +81,7 @@ Work in this area includes:
 
 - enriching peer reachability metadata
 - improving negotiation logic in the shared core
+- making NAT behavior part of the direct-versus-relay decision
 - making direct attempts intentional instead of optimistic guesswork
 - preserving clean relay fallback
 
@@ -87,10 +91,26 @@ OpenHanse should now begin practical NAT traversal work for the target topology.
 
 Work in this area includes:
 
-- evaluating the best first direct transport strategy
-- improving the current direct TCP path where useful
-- deciding whether and how to add a first hole-punching mechanism
+- keeping UDP discovery as the basis for NAT analysis
+- classifying NAT behavior instead of only discovering one observed address
+- exchanging credible UDP candidates through the hub
+- coordinating simultaneous UDP punch attempts between peers
+- adding a real direct UDP transport after connection setup succeeds
+- deciding retry timing, fallback timing, and relay handoff rules
 - targeting the Apple-over-5G to LAN-peer scenario first
+
+### 4. Full Hole Punching Path
+
+The next major milestone is no longer "just better direct connect". It is a complete hole-punching path that can be attempted intentionally and then abandoned cleanly when conditions are wrong.
+
+Work in this area includes:
+
+- keeping the current NAT classification step as preflight input
+- defining the message flow for punch coordination through the hub
+- exchanging source and target UDP candidates with timestamps and attempt windows
+- opening and maintaining the local UDP socket that will later carry peer traffic
+- promoting a successful punch into an active direct UDP session
+- falling back to relay when punch coordination expires or fails
 
 ### 4. PeerMode Product Completion
 
@@ -109,7 +129,10 @@ OpenHanse should produce evidence for whether direct-connect work is actually he
 
 Work in this area includes:
 
+- surfacing NAT classification in status and logs
 - surfacing whether delivery used direct or relay
+- recording when direct was skipped because of symmetric NAT
+- recording punch-attempt success, timeout, and fallback outcomes
 - recording direct attempt success and fallback outcomes
 - measuring relay reduction for the target topology
 - keeping enough runtime information to debug field failures
@@ -118,15 +141,21 @@ Work in this area includes:
 
 ### Runtime
 
-- [ ] Improve the reachability model used for direct advertisement.
-- [ ] Distinguish clearly between local bind addresses and externally useful direct hints.
-- [ ] Improve direct-versus-relay decision logic in the shared runtime.
+- [x] Improve the reachability model used for direct advertisement with NAT behavior metadata.
+- [x] Distinguish clearly between local bind addresses and externally useful direct hints.
+- [x] Improve direct-versus-relay decision logic in the shared runtime so symmetric NAT does not attempt direct first.
 - [ ] Preserve clean automatic relay fallback for all direct failure cases.
 
 ### NAT Work
 
-- [ ] Choose the first explicit NAT traversal strategy for the target topology.
-- [ ] Implement the first practical direct-connect improvement for NAT-separated peers.
+- [x] Choose the first explicit NAT traversal strategy for the target topology: UDP-based hole punching with relay fallback.
+- [x] Implement the first NAT preflight step: dual UDP discovery probes for NAT classification.
+- [ ] Register and expose NAT classification cleanly in all runtime surfaces.
+- [ ] Exchange UDP candidates between peers through the hub.
+- [ ] Define and implement the first explicit punch-coordination flow.
+- [ ] Add a real direct UDP message transport after successful punch setup.
+- [ ] Decide and implement retry timing and timeout rules for punch attempts.
+- [ ] Implement explicit relay fallback after punch failure or expiry.
 - [ ] Validate the target Apple 5G to LAN peer scenario.
 - [ ] Validate the reverse direction from LAN peer back to Apple over 5G.
 
@@ -146,7 +175,10 @@ Work in this area includes:
 
 ### Measurement
 
+- [ ] Report NAT behavior clearly in status and logs.
 - [ ] Report final delivery mode clearly in status and logs.
+- [ ] Record when direct was skipped because NAT classification made it non-credible.
+- [ ] Record punch attempt start, success, timeout, and fallback.
 - [ ] Record failed direct attempts that fall back to relay.
 - [ ] Measure direct success rate in the target topology.
 - [ ] Measure relay usage reduction against the current baseline.
@@ -157,6 +189,7 @@ Work in this area includes:
 - reintroducing separate standalone hub or CLI repositories
 - removing relay fallback
 - solving every NAT topology immediately
+- building full ICE/TURN/STUN parity before proving the first OpenHanse-specific punch flow
 - broad production hardening unrelated to the current communication model
 - advanced platform expansion before the shared runtime behavior is better proven
 
@@ -168,6 +201,8 @@ Work in this area includes:
 - [x] add `PeerMode` to the shared runtime
 - [x] wire `PeerMode` into CLI and GUI
 - [x] remove the obsolete standalone `openhanse-cli` and `openhanse-hub` repositories
+- [x] stop treating hub-observed public TCP source addresses as credible direct TCP reachability
+- [x] add dual UDP discovery probes to classify NAT behavior as predictable or symmetric
 
 ## Success Criteria For The Next Step
 
@@ -175,6 +210,8 @@ The next WIP cycle should be considered successful if:
 
 - the unified runtime remains stable
 - deployment through `openhanse-cli --peer-mode hub` is the documented and normal hub path
-- direct communication succeeds more often in the target NAT-separated scenario
+- NAT classification is visible and trustworthy during field testing
+- the runtime can coordinate at least one explicit UDP hole-punch attempt path
+- direct UDP communication succeeds more often in the target NAT-separated scenario
 - relay remains reliable when direct delivery does not work
 - the runtime can show whether the real-world outcome was direct or relay

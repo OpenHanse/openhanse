@@ -121,6 +121,17 @@ impl HubRuntimeHandle {
                     "failed to bind discovery UDP socket on {discovery_udp_addr}: {error}"
                 )
             })?;
+        let secondary_discovery_udp_addr = SocketAddr::new(
+            discovery_udp_addr.ip(),
+            discovery_udp_addr.port() + 1,
+        );
+        let secondary_discovery_socket = UdpSocket::bind(secondary_discovery_udp_addr)
+            .await
+            .map_err(|error| {
+                format!(
+                    "failed to bind secondary discovery UDP socket on {secondary_discovery_udp_addr}: {error}"
+                )
+            })?;
         let (shutdown_tx, _) = watch::channel(false);
         let shared = Arc::new(HubRuntimeShared {
             config: config.clone(),
@@ -132,10 +143,16 @@ impl HubRuntimeHandle {
 
         handle.spawn_cleanup_task().await;
         handle.spawn_discovery_udp_task(discovery_socket).await;
+        handle
+            .spawn_discovery_udp_task(secondary_discovery_socket)
+            .await;
         handle.spawn_http_server(listener).await;
 
         info!("openhanse-core hub listening on {addr}");
         info!("openhanse-core UDP discovery listening on {discovery_udp_addr}");
+        info!(
+            "openhanse-core secondary UDP discovery listening on {secondary_discovery_udp_addr}"
+        );
         Ok(handle)
     }
 

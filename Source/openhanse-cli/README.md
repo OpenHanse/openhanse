@@ -66,4 +66,4 @@ cargo run --release -- --id hub --peer-mode hub --server http://0.0.0.0:8080
 
 ## Current Limitation
 
-`direct_udp` discovery candidates are collected as groundwork for later hole punching, but actual delivery still uses `direct_tcp` or relay today. NAT-separated peers may therefore still fall back to relay in many real-world scenarios.
+The runtime now performs two UDP discovery probes against the hub to classify NAT behavior as `predictable` or `symmetric`, and the hub avoids treating an observed public registration source as proof of inbound `direct_tcp` reachability. Actual peer delivery still uses `direct_tcp` or relay today, so NAT-separated peers will still fall back to relay until a real UDP hole-punch transport is implemented.

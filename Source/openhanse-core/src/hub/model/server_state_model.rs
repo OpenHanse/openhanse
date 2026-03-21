@@ -13,9 +13,10 @@ use crate::{
             RelayConnectionInfoModel,
         },
         peer_model::{
-            DirectReachabilityModeModel, PeerReachabilityModel, PeerRecordModel,
-            ReachabilityAddressModel, ReachabilityConfidenceModel, ReachabilityScopeModel,
-            ReachabilitySourceModel, RegisterPeerRequestModel, TransportProtocolEnum,
+            DirectReachabilityModeModel, NatBehaviorModel, PeerReachabilityModel,
+            PeerRecordModel, ReachabilityAddressModel, ReachabilityConfidenceModel,
+            ReachabilityScopeModel, ReachabilitySourceModel, RegisterPeerRequestModel,
+            TransportProtocolEnum,
         },
         relay_model::{
             RelayAttachResponseModel, RelayMessageEnvelopeModel, RelaySendRequestModel,
@@ -315,9 +316,6 @@ fn apply_observed_reachability(
         {
             reachability.observed_addresses.push(observed);
         }
-        if reachability.mode == DirectReachabilityModeModel::UnknownExternal {
-            reachability.mode = DirectReachabilityModeModel::PublicDirect;
-        }
     }
 
     reachability
@@ -369,12 +367,17 @@ fn select_direct_candidates(
     {
         return None;
     }
+    if source.reachability.nat_behavior == NatBehaviorModel::Symmetric {
+        return None;
+    }
+    if target.reachability.nat_behavior == NatBehaviorModel::Symmetric {
+        return None;
+    }
 
     let public_candidates: Vec<_> = target
         .reachability
         .advertised_addresses
         .iter()
-        .chain(target.reachability.observed_addresses.iter())
         .filter(|candidate| {
             candidate.transport_protocol == TransportProtocolEnum::DirectTcp
         })
@@ -447,10 +450,16 @@ fn relay_decision_reason(
     if target.reachability.mode == DirectReachabilityModeModel::RelayOnly {
         return "target is configured for relay-only delivery".to_string();
     }
+    if source.reachability.nat_behavior == NatBehaviorModel::Symmetric {
+        return "source is behind symmetric NAT; direct hole punching is not credible".to_string();
+    }
+    if target.reachability.nat_behavior == NatBehaviorModel::Symmetric {
+        return "target is behind symmetric NAT; direct hole punching is not credible".to_string();
+    }
     if target.reachability.message_endpoint.is_none() {
         return "target has no shared message endpoint".to_string();
     }
-    "target has no credible externally reachable direct candidate".to_string()
+    "target has no verified public direct TCP candidate or same-LAN path".to_string()
 }
 
 #[cfg(test)]
@@ -460,9 +469,9 @@ mod tests {
         connect_model::{ConnectDecisionModel, ConnectRequestModel},
         message_model::ChatMessageEnvelopeModel,
         peer_model::{
-            DirectReachabilityModeModel, PeerReachabilityModel, ReachabilityAddressModel,
-            ReachabilityConfidenceModel, ReachabilityScopeModel, ReachabilitySourceModel,
-            RegisterPeerRequestModel, TransportProtocolEnum,
+            DirectReachabilityModeModel, NatBehaviorModel, PeerReachabilityModel,
+            ReachabilityAddressModel, ReachabilityConfidenceModel, ReachabilityScopeModel,
+            ReachabilitySourceModel, RegisterPeerRequestModel, TransportProtocolEnum,
         },
         relay_model::RelaySendRequestModel,
     };
@@ -476,6 +485,7 @@ mod tests {
             display_name: Some(format!("Peer {peer_id}")),
             reachability: PeerReachabilityModel {
                 mode: DirectReachabilityModeModel::PublicDirect,
+                nat_behavior: NatBehaviorModel::Unknown,
                 message_endpoint: Some("/message".to_string()),
                 bind_address: Some(candidate(peer_id, ReachabilityScopeModel::Public)),
                 advertised_addresses: vec![candidate(peer_id, ReachabilityScopeModel::Public)],
@@ -543,6 +553,39 @@ mod tests {
                 assert_eq!(state.relay_sessions.len(), 1);
             }
             ConnectDecisionModel::Direct { .. } => panic!("expected relay connection"),
+        }
+    }
+
+    #[test]
+    fn connect_does_not_treat_hub_observed_tcp_address_as_public_direct() {
+        let mut state = ServerStateModel::new(Duration::from_secs(30), Duration::from_secs(60));
+        let mut alice = register_request_model("alice");
+        alice.reachability.mode = DirectReachabilityModeModel::UnknownExternal;
+        alice.reachability.advertised_addresses = vec![candidate("alice", ReachabilityScopeModel::Lan)];
+        state.register_peer(alice, Some("203.0.113.10:45678".parse().expect("observed source")));
+
+        let mut bob = register_request_model("bob");
+        bob.reachability.mode = DirectReachabilityModeModel::UnknownExternal;
+        bob.reachability.advertised_addresses = vec![candidate("bob", ReachabilityScopeModel::Lan)];
+        state.register_peer(bob, Some("203.0.113.11:45679".parse().expect("observed source")));
+
+        let decision = state
+            .connect(ConnectRequestModel {
+                source_peer_id: "alice".to_string(),
+                target_peer_id: "bob".to_string(),
+                prefer_direct: true,
+            })
+            .expect("connect should succeed");
+
+        match decision {
+            ConnectDecisionModel::Relay { relay } => {
+                assert!(relay
+                    .decision_reason
+                    .contains("no verified public direct TCP candidate"));
+            }
+            ConnectDecisionModel::Direct { .. } => {
+                panic!("hub-observed public TCP address should not enable direct delivery")
+            }
         }
     }
 

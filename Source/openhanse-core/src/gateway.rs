@@ -8,9 +8,10 @@ use crate::model::{
     connect_model::ConnectDecisionModel,
     message_model::ChatMessageEnvelopeModel,
     peer_model::{
-        DirectReachabilityModeModel, HeartbeatRequestModel, PeerLookupResponseModel,
-        PeerReachabilityModel, ReachabilityAddressModel, ReachabilityConfidenceModel,
-        ReachabilityScopeModel, ReachabilitySourceModel, RegisterPeerRequestModel,
+        DirectReachabilityModeModel, HeartbeatRequestModel, NatBehaviorModel,
+        PeerLookupResponseModel, PeerReachabilityModel, ReachabilityAddressModel,
+        ReachabilityConfidenceModel, ReachabilityScopeModel, ReachabilitySourceModel,
+        RegisterPeerRequestModel,
         RegisterPeerResponseModel, TransportProtocolEnum,
     },
     relay_model::{
@@ -43,6 +44,12 @@ const DEFAULT_DISCOVERY_UDP_PORT: u16 = 3478;
 const MAX_EVENTS: usize = 256;
 const DELIVERY_MODE_DIRECT_TCP: &str = "direct_tcp";
 const DELIVERY_MODE_RELAY: &str = "relay";
+
+#[derive(Debug, Clone)]
+struct UdpDiscoveryOutcome {
+    nat_behavior: NatBehaviorModel,
+    observed_addresses: Vec<ReachabilityAddressModel>,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GatewayProfile {
@@ -187,6 +194,7 @@ impl GatewayRuntimeConfig {
                 self.direct_bind_port,
                 self.communication_mode.supports_direct_advertisement(),
                 DEFAULT_MESSAGE_ENDPOINT,
+                NatBehaviorModel::Unknown,
                 Vec::new(),
             ),
         }
@@ -326,7 +334,7 @@ impl GatewayRuntimeHandle {
             .local_addr()
             .map_err(|error| format!("failed to inspect direct listener: {error}"))?;
         let udp_discovery_result = if config.communication_mode.supports_direct_advertisement() {
-            discover_udp_observed_addresses(
+            discover_udp_reachability(
                 &config.server_base_url,
                 &config.peer_id,
                 &config.direct_bind_host,
@@ -337,11 +345,14 @@ impl GatewayRuntimeHandle {
         } else {
             Ok(None)
         };
-        let initial_observed_addresses = udp_discovery_result
+        let udp_discovery = udp_discovery_result
             .as_ref()
             .ok()
             .and_then(|observed| observed.clone())
-            .unwrap_or_default();
+            .unwrap_or_else(|| UdpDiscoveryOutcome {
+                nat_behavior: NatBehaviorModel::Unknown,
+                observed_addresses: Vec::new(),
+            });
 
         let profile = GatewayProfile {
             reachability: peer_reachability_for(
@@ -349,7 +360,8 @@ impl GatewayRuntimeHandle {
                 direct_address.port(),
                 config.communication_mode.supports_direct_advertisement(),
                 DEFAULT_MESSAGE_ENDPOINT,
-                initial_observed_addresses,
+                udp_discovery.nat_behavior,
+                udp_discovery.observed_addresses.clone(),
             ),
             ..config.profile()
         };
@@ -396,13 +408,14 @@ impl GatewayRuntimeHandle {
             )
             .await?;
         match udp_discovery_result {
-            Ok(Some(observed)) if !observed.is_empty() => {
+            Ok(Some(outcome)) if !outcome.observed_addresses.is_empty() => {
                 handle
                     .record_event(
                         "udp_discovery_succeeded",
                         format!(
-                            "Observed direct_udp candidate {} for future NAT traversal.",
-                            observed[0].base_url
+                            "Observed {} UDP mapping(s); NAT classified as {}.",
+                            outcome.observed_addresses.len(),
+                            nat_behavior_label(outcome.nat_behavior),
                         ),
                     )
                     .await?;
@@ -974,6 +987,7 @@ fn peer_reachability_for(
     bind_port: u16,
     supports_direct: bool,
     message_endpoint: &str,
+    nat_behavior: NatBehaviorModel,
     observed_addresses: Vec<ReachabilityAddressModel>,
 ) -> PeerReachabilityModel {
     let bind_base_url = format!("http://{}:{}", bind_host, bind_port);
@@ -982,6 +996,7 @@ fn peer_reachability_for(
     if !supports_direct {
         return PeerReachabilityModel {
             mode: DirectReachabilityModeModel::RelayOnly,
+            nat_behavior: NatBehaviorModel::Unknown,
             message_endpoint: Some(message_endpoint.to_string()),
             bind_address: Some(ReachabilityAddressModel {
                 base_url: bind_base_url,
@@ -1023,6 +1038,7 @@ fn peer_reachability_for(
             ReachabilityScopeModel::Lan => DirectReachabilityModeModel::UnknownExternal,
             ReachabilityScopeModel::Loopback => DirectReachabilityModeModel::LocalOnly,
         },
+        nat_behavior,
         message_endpoint: Some(message_endpoint.to_string()),
         bind_address: Some(bind_address),
         advertised_addresses: vec![advertised_address],
@@ -1052,27 +1068,53 @@ fn reachability_scope_for_host(host: &str) -> ReachabilityScopeModel {
     }
 }
 
-async fn discover_udp_observed_addresses(
+async fn discover_udp_reachability(
     server_base_url: &str,
     peer_id: &str,
     bind_host: &str,
-    bind_port: u16,
-) -> Result<Vec<ReachabilityAddressModel>, String> {
-    let discovery_addr = derive_discovery_udp_addr(server_base_url).await?;
-    // This probe only discovers an externally observed UDP endpoint for later hole punching.
-    // It does not make direct UDP delivery active yet.
-    probe_udp_observed_addresses(discovery_addr, peer_id, bind_host, bind_port).await
-}
-
-async fn probe_udp_observed_addresses(
-    discovery_addr: SocketAddr,
-    peer_id: &str,
-    bind_host: &str,
-    bind_port: u16,
-) -> Result<Vec<ReachabilityAddressModel>, String> {
-    let socket = tokio::net::UdpSocket::bind((bind_host, bind_port))
+    _bind_port: u16,
+) -> Result<UdpDiscoveryOutcome, String> {
+    let discovery_addrs = derive_discovery_udp_addrs(server_base_url).await?;
+    let socket = tokio::net::UdpSocket::bind((bind_host, 0))
         .await
         .map_err(|error| format!("failed to bind UDP discovery socket: {error}"))?;
+    let first = probe_udp_observed_address(&socket, discovery_addrs[0], peer_id).await?;
+    let second = probe_udp_observed_address(&socket, discovery_addrs[1], peer_id).await?;
+    let nat_behavior = nat_behavior_from_probes(first, second);
+
+    let mut observed_addresses = Vec::new();
+    for observed_addr in [first, second] {
+        let candidate = ReachabilityAddressModel {
+            base_url: format!("udp://{}", observed_addr),
+            scope: reachability_scope_for_ip(observed_addr.ip()),
+            source: ReachabilitySourceModel::DiscoveryProbe,
+            transport_protocol: TransportProtocolEnum::DirectUdp,
+            confidence: match nat_behavior {
+                NatBehaviorModel::Predictable => ReachabilityConfidenceModel::High,
+                NatBehaviorModel::Symmetric => ReachabilityConfidenceModel::Medium,
+                NatBehaviorModel::Unknown => ReachabilityConfidenceModel::Low,
+            },
+            address_hint: observed_addr.ip().to_string(),
+        };
+        if !observed_addresses
+            .iter()
+            .any(|existing: &ReachabilityAddressModel| existing.base_url == candidate.base_url)
+        {
+            observed_addresses.push(candidate);
+        }
+    }
+
+    Ok(UdpDiscoveryOutcome {
+        nat_behavior,
+        observed_addresses,
+    })
+}
+
+async fn probe_udp_observed_address(
+    socket: &tokio::net::UdpSocket,
+    discovery_addr: SocketAddr,
+    peer_id: &str,
+) -> Result<SocketAddr, String> {
     let request = DiscoveryProbeRequestModel {
         transaction_id: uuid::Uuid::new_v4().to_string(),
         peer_id: Some(peer_id.to_string()),
@@ -1102,27 +1144,44 @@ async fn probe_udp_observed_addresses(
         .parse::<SocketAddr>()
         .map_err(|error| format!("invalid observed UDP address: {error}"))?;
 
-    Ok(vec![ReachabilityAddressModel {
-        base_url: format!("udp://{}", observed_addr),
-        scope: reachability_scope_for_ip(observed_addr.ip()),
-        source: ReachabilitySourceModel::DiscoveryProbe,
-        transport_protocol: TransportProtocolEnum::DirectUdp,
-        confidence: ReachabilityConfidenceModel::Medium,
-        address_hint: observed_addr.ip().to_string(),
-    }])
+    Ok(observed_addr)
 }
 
-async fn derive_discovery_udp_addr(server_base_url: &str) -> Result<SocketAddr, String> {
+fn nat_behavior_label(nat_behavior: NatBehaviorModel) -> &'static str {
+    match nat_behavior {
+        NatBehaviorModel::Unknown => "unknown",
+        NatBehaviorModel::Predictable => "predictable",
+        NatBehaviorModel::Symmetric => "symmetric",
+    }
+}
+
+fn nat_behavior_from_probes(
+    first: SocketAddr,
+    second: SocketAddr,
+) -> NatBehaviorModel {
+    if first.port() == second.port() {
+        NatBehaviorModel::Predictable
+    } else {
+        NatBehaviorModel::Symmetric
+    }
+}
+
+async fn derive_discovery_udp_addrs(server_base_url: &str) -> Result<[SocketAddr; 2], String> {
     let url = reqwest::Url::parse(server_base_url).map_err(|error| error.to_string())?;
     let host = url
         .host_str()
         .ok_or_else(|| "server base URL is missing a host".to_string())?;
-    let port = DEFAULT_DISCOVERY_UDP_PORT;
+    let primary = resolve_discovery_udp_addr(host, DEFAULT_DISCOVERY_UDP_PORT).await?;
+    let secondary = resolve_discovery_udp_addr(host, DEFAULT_DISCOVERY_UDP_PORT + 1).await?;
+    Ok([primary, secondary])
+}
+
+async fn resolve_discovery_udp_addr(host: &str, port: u16) -> Result<SocketAddr, String> {
     tokio::net::lookup_host((host, port))
         .await
-        .map_err(|error| format!("failed to resolve UDP discovery host: {error}"))?
+        .map_err(|error| format!("failed to resolve UDP discovery host {host}:{port}: {error}"))?
         .next()
-        .ok_or_else(|| "UDP discovery host resolved to no addresses".to_string())
+        .ok_or_else(|| format!("UDP discovery host {host}:{port} resolved to no addresses"))
 }
 
 fn reachability_scope_for_ip(ip: std::net::IpAddr) -> ReachabilityScopeModel {
@@ -1422,9 +1481,9 @@ mod tests {
     use crate::model::{
         connect_model::{ConnectDecisionModel, DirectConnectionInfoModel},
         peer_model::{
-            PeerLookupResponseModel, PeerRecordModel, ReachabilityAddressModel,
-            ReachabilityConfidenceModel, ReachabilityScopeModel, ReachabilitySourceModel,
-            TransportProtocolEnum,
+            NatBehaviorModel, PeerLookupResponseModel, PeerRecordModel,
+            ReachabilityAddressModel, ReachabilityConfidenceModel, ReachabilityScopeModel,
+            ReachabilitySourceModel, TransportProtocolEnum,
         },
         relay_model::{
             RelayAttachRequestModel, RelayAttachResponseModel, RelayMessageEnvelopeModel,
@@ -1582,34 +1641,114 @@ mod tests {
 
     #[tokio::test]
     async fn udp_discovery_probe_reports_observed_udp_candidate() {
-        let socket = tokio::net::UdpSocket::bind(("127.0.0.1", 0))
+        let primary_socket = tokio::net::UdpSocket::bind(("127.0.0.1", 0))
             .await
-            .expect("bind udp discovery test server");
-        let discovery_addr = socket.local_addr().expect("discovery addr");
+            .expect("bind primary udp discovery test server");
+        let discovery_addr = primary_socket.local_addr().expect("primary discovery addr");
+        let secondary_socket =
+            tokio::net::UdpSocket::bind(("127.0.0.1", discovery_addr.port() + 1))
+                .await
+                .expect("bind secondary udp discovery test server");
+        for socket in [primary_socket, secondary_socket] {
+            tokio::spawn(async move {
+                let mut buffer = [0_u8; 1024];
+                let (len, remote_addr) = socket.recv_from(&mut buffer).await.expect("recv probe");
+                let request: DiscoveryProbeRequestModel =
+                    serde_json::from_slice(&buffer[..len]).expect("decode request");
+                let response = DiscoveryProbeResponseModel {
+                    transaction_id: request.transaction_id,
+                    observed_addr: remote_addr.to_string(),
+                    transport_protocol: TransportProtocolEnum::DirectUdp,
+                };
+                let payload = serde_json::to_vec(&response).expect("encode response");
+                socket
+                    .send_to(&payload, remote_addr)
+                    .await
+                    .expect("send response");
+            });
+        }
+
+        let client_socket = tokio::net::UdpSocket::bind(("127.0.0.1", 0))
+            .await
+            .expect("bind client udp discovery socket");
+        let first = probe_udp_observed_address(&client_socket, discovery_addr, "gateway-a")
+            .await
+            .expect("probe primary");
+        let second = probe_udp_observed_address(
+            &client_socket,
+            std::net::SocketAddr::from(([127, 0, 0, 1], discovery_addr.port() + 1)),
+            "gateway-a",
+        )
+        .await
+        .expect("probe secondary");
+        assert_eq!(nat_behavior_from_probes(first, second), NatBehaviorModel::Predictable);
+    }
+
+    #[tokio::test]
+    async fn udp_discovery_probe_reports_symmetric_nat_when_mappings_differ() {
+        let primary_socket = tokio::net::UdpSocket::bind(("127.0.0.1", 0))
+            .await
+            .expect("bind primary udp discovery test server");
+        let discovery_addr = primary_socket.local_addr().expect("primary discovery addr");
+        let secondary_socket =
+            tokio::net::UdpSocket::bind(("127.0.0.1", discovery_addr.port() + 1))
+                .await
+                .expect("bind secondary udp discovery test server");
         tokio::spawn(async move {
             let mut buffer = [0_u8; 1024];
-            let (len, remote_addr) = socket.recv_from(&mut buffer).await.expect("recv probe");
+            let (len, remote_addr) = primary_socket
+                .recv_from(&mut buffer)
+                .await
+                .expect("recv primary probe");
             let request: DiscoveryProbeRequestModel =
-                serde_json::from_slice(&buffer[..len]).expect("decode request");
+                serde_json::from_slice(&buffer[..len]).expect("decode primary request");
             let response = DiscoveryProbeResponseModel {
                 transaction_id: request.transaction_id,
                 observed_addr: remote_addr.to_string(),
                 transport_protocol: TransportProtocolEnum::DirectUdp,
             };
-            let payload = serde_json::to_vec(&response).expect("encode response");
-            socket
+            let payload = serde_json::to_vec(&response).expect("encode primary response");
+            primary_socket
                 .send_to(&payload, remote_addr)
                 .await
-                .expect("send response");
+                .expect("send primary response");
+        });
+        tokio::spawn(async move {
+            let mut buffer = [0_u8; 1024];
+            let (len, remote_addr) = secondary_socket
+                .recv_from(&mut buffer)
+                .await
+                .expect("recv secondary probe");
+            let request: DiscoveryProbeRequestModel =
+                serde_json::from_slice(&buffer[..len]).expect("decode secondary request");
+            let mut observed_addr = remote_addr;
+            observed_addr.set_port(remote_addr.port() + 1000);
+            let response = DiscoveryProbeResponseModel {
+                transaction_id: request.transaction_id,
+                observed_addr: observed_addr.to_string(),
+                transport_protocol: TransportProtocolEnum::DirectUdp,
+            };
+            let payload = serde_json::to_vec(&response).expect("encode secondary response");
+            secondary_socket
+                .send_to(&payload, remote_addr)
+                .await
+                .expect("send secondary response");
         });
 
-        let observed = probe_udp_observed_addresses(discovery_addr, "gateway-a", "127.0.0.1", 0)
+        let client_socket = tokio::net::UdpSocket::bind(("127.0.0.1", 0))
             .await
-            .expect("probe should succeed");
-        assert_eq!(observed.len(), 1);
-        assert_eq!(observed[0].transport_protocol, TransportProtocolEnum::DirectUdp);
-        assert_eq!(observed[0].source, ReachabilitySourceModel::DiscoveryProbe);
-        assert!(observed[0].base_url.starts_with("udp://127.0.0.1:"));
+            .expect("bind client udp discovery socket");
+        let first = probe_udp_observed_address(&client_socket, discovery_addr, "gateway-a")
+            .await
+            .expect("probe primary");
+        let second = probe_udp_observed_address(
+            &client_socket,
+            std::net::SocketAddr::from(([127, 0, 0, 1], discovery_addr.port() + 1)),
+            "gateway-a",
+        )
+        .await
+        .expect("probe secondary");
+        assert_eq!(nat_behavior_from_probes(first, second), NatBehaviorModel::Symmetric);
     }
 
     #[test]
@@ -1632,6 +1771,7 @@ mod tests {
             display_name: Some(display_name_for_peer(peer_id)),
             reachability: PeerReachabilityModel {
                 mode: DirectReachabilityModeModel::LocalOnly,
+                nat_behavior: NatBehaviorModel::Unknown,
                 message_endpoint: Some("/message".to_string()),
                 bind_address: Some(local_candidate(port)),
                 advertised_addresses: vec![local_candidate(port)],

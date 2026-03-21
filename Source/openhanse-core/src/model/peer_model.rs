@@ -44,6 +44,14 @@ pub enum DirectReachabilityModeModel {
     PublicDirect,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NatBehaviorModel {
+    Unknown,
+    Predictable,
+    Symmetric,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ReachabilityAddressModel {
     pub base_url: String,
@@ -57,6 +65,7 @@ pub struct ReachabilityAddressModel {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PeerReachabilityModel {
     pub mode: DirectReachabilityModeModel,
+    pub nat_behavior: NatBehaviorModel,
     pub message_endpoint: Option<String>,
     pub bind_address: Option<ReachabilityAddressModel>,
     pub advertised_addresses: Vec<ReachabilityAddressModel>,

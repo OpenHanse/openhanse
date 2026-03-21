@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 REMOTE_HOST="${1:-}"
-LOCAL_BINARY_PATH="$WORKSPACE_DIR/openhanse/Source/openhanse-cli/target/release/openhanse_gateway_cli"
+LOCAL_BINARY_PATH="$WORKSPACE_DIR/openhanse/Source/openhanse-cli/Artefact/openhanse-cli-linux-x86_64"
 REMOTE_BIN_DIR='.local/lib/openhanse-hub'
 REMOTE_BIN_PATH="$REMOTE_BIN_DIR/openhanse-hub"
 
@@ -16,7 +16,7 @@ fi
 
 if [[ ! -f "$LOCAL_BINARY_PATH" ]]; then
   echo "Missing build artifact: $LOCAL_BINARY_PATH" >&2
-  echo "Build it first with: cd $WORKSPACE_DIR/openhanse/Source/openhanse-cli && cargo build --release" >&2
+  echo "Build it first with: cd $WORKSPACE_DIR/openhanse/Source/openhanse-cli && ./BuildOpenHanseCli.sh" >&2
   exit 1
 fi
 

@@ -10,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="$SCRIPT_DIR/Source"
-OUTPUT_DIR="$SCRIPT_DIR/Output"
+OUTPUT_DIR="$SCRIPT_DIR/Artefact"
 
 usage() {
     echo "Usage: $0 <image-name> <image-version> <arch>"

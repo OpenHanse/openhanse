@@ -30,28 +30,26 @@ The long-term vision is an open stack for discovering, distributing, and running
 
 The current implementation path is intentionally smaller:
 
-- `openhanse-hub`: the Rust central hub for rendezvous and relay
-- `openhanse-cli`: the command-line gateway flavor used to prove the client/runtime split
-- `openhanse-apple`: the first native host app embedding the shared web gateway
+- `openhanse-core`: the shared Rust runtime that combines wire models, gateway behavior, and hub capabilities
+- `openhanse-cli`: the command-line gateway flavor built on `openhanse-core`
+- `openhanse-gui`: the host-facing Rust library with REST API, bundled web UI, and public C ABI
+- `openhanse-apple`: the first native host app embedding `openhanse-gui`
 
-Phase 1 still focuses on proving the communication model end to end before broad platform rollout, but the gateway side is now split into reusable Rust layers so both CLI and native host apps can share the same runtime behavior.
+Phase 1 still focuses on proving the communication model end to end before broad platform rollout. The current refactor moves the Rust side toward a cleaner shared core and a single peer runtime that can run in `gateway`, `hub`, or `both` mode.
+The main Rust crates now live directly inside this repository under `Source/openhanse-core`, `Source/openhanse-cli`, and `Source/openhanse-gui`.
 
 ## Shared Rust Architecture
 
 ```mermaid
 graph TD
-    Protocol["openhanse-protocol<br/>Shared wire models"]
-    GatewayCore["openhanse-gateway-core<br/>Shared OpenHanse client runtime"]
-    GatewayCli["openhanse-gateway-cli<br/>Command-line gateway"]
-    GatewayWeb["openhanse-gateway-web<br/>REST API + web UI + C ABI"]
-    Hub["openhanse-hub<br/>Central rendezvous and relay app"]
+    Core["openhanse-core<br/>Shared wire models + gateway runtime + hub capabilities"]
+    Cli["openhanse-gateway-cli<br/>Command-line gateway"]
+    Gui["openhanse-gui<br/>REST API + web UI + C ABI"]
     Apple["openhanse-apple<br/>Swift host app with WKWebView"]
 
-    Protocol --> Hub
-    Protocol --> GatewayCore
-    GatewayCore --> GatewayCli
-    GatewayCore --> GatewayWeb
-    GatewayWeb --> Apple
+    Core --> Cli
+    Core --> Gui
+    Gui --> Apple
 ```
 
 ## Basic Communication

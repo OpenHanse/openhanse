@@ -4,19 +4,18 @@ This example shows how to run a simple OpenHanse hub on a Linux machine.
 
 ## Build
 
-Build the Linux binary in the `openhanse-hub` repository:
+Build the Linux binary from the main repository:
 
 ```bash
-cd openhanse-hub
-./Build.sh
+cd openhanse/Source/openhanse-cli
+cargo build --release
 ```
 
-This produces artifacts such as:
+This produces the CLI binary:
 
-- `openhanse-hub/Build/openhanse-hub-linux-x86_64`
-- `openhanse-hub/Build/openhanse-hub-linux-aarch64`
+- `openhanse/Source/openhanse-cli/target/release/openhanse_gateway_cli`
 
-This deploy example currently assumes `openhanse-hub-linux-x86_64`.
+This deploy example uploads that binary and runs it in `--peer-mode hub`.
 
 ## Upload
 
@@ -57,9 +56,11 @@ This location is intentionally user-local and fits a `systemctl --user` service 
 
 ## Required Runtime Settings
 
-The hub currently expects these defaults:
+The deployed hub currently uses these defaults:
 
-- TCP HTTP API on `0.0.0.0:8080` via `OPENHANSE_BIND`
-- UDP discovery on `0.0.0.0:3478` via `OPENHANSE_DISCOVERY_UDP_BIND`
+- peer mode `hub`
+- peer id `hub`
+- server URL `http://0.0.0.0:8080`
+- UDP discovery on `0.0.0.0:3478`
 
 Make sure the host firewall allows TCP `8080` and UDP `3478` if the hub should be reachable from outside the machine.

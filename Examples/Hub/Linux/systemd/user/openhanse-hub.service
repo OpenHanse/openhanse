@@ -6,12 +6,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h/.local/lib/openhanse-hub
-ExecStart=%h/.local/lib/openhanse-hub/openhanse-hub
+ExecStart=%h/.local/lib/openhanse-hub/openhanse-hub --id hub --peer-mode hub --server http://0.0.0.0:8080
 Restart=always
 RestartSec=3
-Environment=OPENHANSE_BIND=0.0.0.0:8080
-Environment=OPENHANSE_DISCOVERY_UDP_BIND=0.0.0.0:3478
-Environment=RUST_LOG=openhanse_hub=info,tower_http=info
+Environment=RUST_LOG=info,tower_http=info
 
 [Install]
 WantedBy=default.target

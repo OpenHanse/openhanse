@@ -10,11 +10,10 @@ This document is written for agentic workers who need a compact overview of the 
 
 ## Project Structure
 
-OpenHanse consists of multiple repositories with different roles. Each repository has its own codebase and scope, but they contribute to the same overall vision.
+OpenHanse consists of a small set of repositories with different roles. The main Rust runtime now lives in the `openhanse` repository itself.
 
-- `openhanse`: Project-level repository for planning, documentation, shared vision, and cross-repository coordination.
+- `openhanse`: Project-level repository for planning, documentation, shared vision, and the shared Rust crates under `Source/openhanse-core`, `Source/openhanse-cli`, and `Source/openhanse-gui`.
 - `openhanse-apple`: Source code for the Apple gateway app on iOS, iPadOS, and macOS.
-- `openhanse-hub`: Source code for the OpenHanse hub components that act as rendezvous and relay infrastructure for gateways.
 - `openhanse-android`: Planned repository for the Android gateway app. Not started yet.
 - `openhanse-windows`: Planned repository for the Windows gateway app. Not started yet.
 - `openhanse-linux`: Planned repository for the Linux gateway app. Not started yet.

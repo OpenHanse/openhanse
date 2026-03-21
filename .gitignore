@@ -1,5 +1,6 @@
 .DS_Store
 ### BuildSystem ###
-*.oci.tar
+BuildSystem/**/*.oci.tar
 ### Rust & Cargo ###
-Source/Rust/**/target/
+Source/**/target/
+Source/openhanse-cli/runtime/

@@ -1,8 +1,7 @@
-<div style="display:flex;align-items:center;gap:0px;justify-content:center;gap:1rem;margin:2rem 0;">
-<img src="./Docs/Assets/openhanse.complex.logo.png" alt="OpenHanse Complex Logo" width="96px" style="border-radius:50%;"/>
-<span style="font-size:48px;font-weight:bold;">OpenHanse</span>
+<div align="center">
+  <img src="./Docs/Assets/openhanse.complex.logo.png" alt="OpenHanse Complex Logo" width="96"/>
+  <h1>OpenHanse</h1>
 </div>
-
 
 This document is written for human readers. Agentic readers should start with [PARSEME.md](./PARSEME.md) for a structured overview of the project structure, source of truth, working rules, and technical stack for contributing to OpenHanse.
 

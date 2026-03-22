@@ -29,65 +29,17 @@ OpenHanse explores a middle ground: easier distribution and access with fewer te
 
 ## What We're Going To Build
 
-The long-term vision is an open stack for discovering, distributing, and running local-first applications.
+### OpenHanse Network
 
-The current implementation path is intentionally smaller:
+The OpenHanse Network aims to provide an easy-to-adopt, platform-agnostic, federated, and autonomous software-defined network for communities.
 
-- `openhanse-core`: the shared Rust runtime that combines wire models, gateway behavior, and hub capabilities
-- `openhanse-cli`: the command-line peer runtime built on `openhanse-core`
-- `openhanse-gui`: the host-facing Rust library with REST API, bundled web UI, and public C ABI
-- `openhanse-apple`: the first native host app embedding `openhanse-gui`
+- **Easy-to-adopt**: Minimal setup and operational overhead, designed for simplicity and accessibility to encourage widespread adoption.
+- **Platform-agnostic**: Operates across diverse platforms and environments like Windows, macOS, Linux, iOS, and Android without vendor lock-in.
+- **Federated**: Allow independently operated networks to interconnect, enabling users to maintain autonomy while still collaborating across broader communities.
+- **Autonomous**: Users and communities can operate, deploy, and connect networks independently, without reliance on centralized control or gatekeepers.
+- **Software-defined**: Define and manage network behavior in software rather than hardware, allowing for maximum adaptability and customization.
 
-The current focus is still a small but real communication MVP before broader platform rollout. The Rust side now uses a shared core and a unified peer runtime that can run in `gateway`, `hub`, or `both` mode.
-The main Rust crates now live directly inside this repository under `Source/openhanse-core`, `Source/openhanse-cli`, and `Source/openhanse-gui`.
-
-## Shared Rust Architecture
-
-```mermaid
-graph TD
-    Core["<b>openhanse-core</b><br/>Shared runtime, models and business logic"]
-    Cli["<b>openhanse-cli</b><br/>Command line interface"]
-    Gui["<b>openhanse-gui</b><br/>Graphical interface"]
-    Apple["<b>openhanse-apple</b><br/>iOS, iPadOS & macOS App"]
-
-    Core --> Cli
-    Core --> Gui
-    Gui --> Apple
-```
-
-## Basic Communication
-
-The current MVP is built around a direct-first communication model: peers register with the OpenHanse hub, keep their presence alive, and ask the shared runtime whether a message should go directly to another peer or fall back to a relay session.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant GatewayA as Peer A
-    participant Server as OpenHanse Hub
-    participant GatewayB as Peer B
-
-    GatewayA->>Server: Register peer and direct endpoint
-    GatewayB->>Server: Register peer and direct endpoint
-
-    loop Presence heartbeat
-        GatewayA->>Server: Refresh presence lease
-        GatewayB->>Server: Refresh presence lease
-    end
-
-    GatewayA->>Server: Request connection to Gateway B
-
-    alt Direct path available
-        Server-->>GatewayA: Return Peer B direct address
-        GatewayA->>GatewayB: Send message directly
-        GatewayB-->>GatewayA: Respond directly
-    else Direct path unavailable
-        Server-->>GatewayA: Return relay session
-        GatewayA->>Server: Send message via relay
-        Server->>GatewayB: Forward relayed message
-        GatewayB-->>Server: Relay response or acknowledgement
-        Server-->>GatewayA: Forward response
-    end
-```
+OpenHanse is designed for communities—groups with shared interests or goals, such as families, friends, local initiatives, hobbyist groups, organizations, or businesses. These communities benefit from enhanced communication and collaboration through a shared, self-managed network.
 
 ## Get In Touch
 

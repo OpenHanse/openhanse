@@ -32,7 +32,17 @@ The OpenHanse Network project is organized into several key components, targets,
 
 - VPN like solution as they require deep system integrationg which is particularly difficult on iOS and Android
 
+## Compareable Solutions
+
+Here is a list of some similar solutions in the market that can provide insights and inspiration for the OpenHanse Network project:
+
+- **ZeroTier**: A software-defined network that allows users to create secure, private networks across the internet. It offers a single binary deployment and supports various platforms, including iOS, Android, Linux, macOS, and Windows. ZeroTier provides a virtual Ethernet port for seamless connectivity but may have limitations in terms of protocol support.
+- **Tailscale**: A VPN service that simplifies secure access to devices and services. It uses the WireGuard protocol for encryption and offers a single binary deployment. Tailscale supports multiple platforms, including iOS, Android, Linux, macOS, and Windows. However, it may not provide the same level of protocol orchestration as our proposed solution.
+- **VPN**: Provides secure remote access to networks by creating a virtual private network. It typically uses protocols like OpenVPN, WireGuard, or IPSec. While VPNs can offer secure connectivity, they may not provide the same level of protocol orchestration and may have limitations in terms of performance and compatibility with certain applications.
+
 ## Technical Stack (WIP)
+
+### Protocol And Architecture
 
 - SSH Tunneling vs. TLS Tunneling vs. SOCKS vs. Generic TCP/UDP Tunneling?
 - IPv6 based identification and/or networking?
@@ -79,13 +89,17 @@ sequenceDiagram
         Server-->>GatewayA: Forward response
     end
 ```
+
+### OpenHanse App
+
 - OpenHanse for iOS, iPadOS, macOS, Android, Windows and Linux as general "demonstration" of functionality and use cases
-  - the mobile app could provide different "mini apps" for different protocols and use cases:
-    - Chat (Custom protocol) like WhatsApp or Telegram
-    - HTTP (Browser) like Safari or Chrome
-    - HTTP (API) like Postman or Bruno
-    - SSH (Terminal) like Termux
-    - FTP like FileZilla
-    - WebSockets
-    - gRPC
-    - MQTT
+- it can be seend as a reference implementation and "Swiss army knife" for interacting with the OpenHanse network and it's peers
+- the mobile app could provide different "mini apps" for different protocols and use cases:
+  - Chat (Custom protocol) like WhatsApp or Telegram
+  - HTTP (Browser) like Safari or Chrome
+  - HTTP (API) like Postman or Bruno
+  - SSH (Terminal) like Termux
+  - FTP like FileZilla
+  - WebSockets
+  - gRPC
+  - MQTT

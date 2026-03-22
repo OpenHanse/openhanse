@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAT: An Obstacle for Direct Communication And How to Overcome It</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f8f9fb;
+    --surface2: #eef0f4;
+    --border: #d1d5df;
+    --text: #1a1d27;
+    --text-muted: #5f6577;
+    --accent: #2563eb;
+    --accent-light: #dbeafe;
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --orange: #d97706;
+    --orange-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+    --cyan: #0891b2;
+    --cyan-light: #cffafe;
+    --purple: #7c3aed;
+    --purple-light: #ede9fe;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 2rem 4rem;
+  }
+
+  /* Wiki-style header */
+  h1 {
+    font-size: 1.9rem;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 2.5rem 0 0.75rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--surface2);
+  }
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.5rem;
+  }
+  p { margin-bottom: 0.85rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* TOC */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    display: inline-block;
+  }
+  .toc-title { font-weight: 600; margin-bottom: 0.4rem; font-size: 0.95rem; }
+  .toc ol { padding-left: 1.4rem; font-size: 0.9rem; }
+  .toc li { margin: 0.2rem 0; }
+  .toc ol ol { margin-top: 0.15rem; }
+
+  /* Diagram boxes */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text);
+    margin: 1rem 0 1.25rem;
+  }
+  .diagram .comment { color: var(--text-muted); }
+  .diagram .highlight { color: var(--red); font-weight: 600; }
+  .diagram .ok { color: var(--green); font-weight: 600; }
+
+  /* Info boxes */
+  .infobox {
+    border-left: 4px solid;
+    border-radius: 0 6px 6px 0;
+    padding: 0.85rem 1.15rem;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+  }
+  .infobox-blue { border-color: var(--accent); background: var(--accent-light); }
+  .infobox-green { border-color: var(--green); background: var(--green-light); }
+  .infobox-orange { border-color: var(--orange); background: var(--orange-light); }
+  .infobox-red { border-color: var(--red); background: var(--red-light); }
+  .infobox-purple { border-color: var(--purple); background: var(--purple-light); }
+  .infobox strong { font-weight: 600; }
+
+  /* Inline code */
+  code {
+    background: var(--surface2);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.88em;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 0.6rem 0.85rem;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface);
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  /* Step indicators */
+  .step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    font-weight: 700;
+    font-size: 0.8rem;
+    margin-right: 0.4rem;
+    flex-shrink: 0;
+  }
+  .step-row {
+    display: flex;
+    align-items: flex-start;
+    margin: 0.6rem 0;
+    gap: 0.25rem;
+  }
+  .step-row p { margin: 0; }
+
+  /* Tag */
+  .tag {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .tag-private { background: var(--orange-light); color: var(--orange); }
+  .tag-public { background: var(--green-light); color: var(--green); }
+  .tag-blocked { background: var(--red-light); color: var(--red); }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+  .col-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  .col-box h4 { font-size: 0.95rem; margin-bottom: 0.4rem; }
+  .col-box p, .col-box ul { font-size: 0.88rem; margin-bottom: 0.3rem; }
+  .col-box ul { padding-left: 1.2rem; }
+  .col-box li { margin-bottom: 0.15rem; }
+
+  /* Footer */
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<h1>NAT: An Obstacle for Direct Communication And How to Overcome It</h1>
+<p class="subtitle">OpenHanse — Knowledge Base</p>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#scenario">Our Scenario</a></li>
+    <li><a href="#ip">IP Addresses: Public vs. Private</a></li>
+    <li><a href="#nat">What is NAT and Why Does It Exist?</a></li>
+    <li>
+      <a href="#problem">The Core Problem: Incoming Connections</a>
+      <ol>
+        <li><a href="#outgoing">Why outgoing works</a></li>
+        <li><a href="#incoming">Why incoming fails</a></li>
+        <li><a href="#both">The double-NAT deadlock</a></li>
+      </ol>
+    </li>
+    <li><a href="#cgnat">CGNAT: The Mobile Network Problem</a></li>
+    <li>
+      <a href="#solutions">How Solutions Overcome NAT</a>
+      <ol>
+        <li><a href="#sol-vpn">Traditional VPN (relay through a server)</a></li>
+        <li><a href="#sol-overlay">Overlay Networks (ZeroTier, Tailscale)</a></li>
+        <li><a href="#sol-holepunch">UDP Hole Punching (direct P2P)</a></li>
+      </ol>
+    </li>
+    <li><a href="#comparison">Comparison: Relay vs. Direct P2P</a></li>
+    <li><a href="#summary">Summary</a></li>
+  </ol>
+</div>
+
+<!-- 1. Scenario -->
+<h2 id="scenario">1. Our Scenario</h2>
+
+<p>We have two devices that need to communicate with each other:</p>
+
+<div class="two-col">
+  <div class="col-box">
+    <h4>Device A — iPhone</h4>
+    <ul>
+      <li>Connected via <strong>5G mobile network</strong></li>
+      <li>Private IP assigned by carrier: <code>10.48.12.97</code></li>
+      <li>Sits behind the carrier's NAT (CGNAT)</li>
+      <li>Running a service (e.g. a small HTTP server) on port 8080</li>
+    </ul>
+  </div>
+  <div class="col-box">
+    <h4>Device B — MacBook</h4>
+    <ul>
+      <li>Connected via <strong>office/home LAN</strong></li>
+      <li>Private IP assigned by router: <code>192.168.1.42</code></li>
+      <li>Sits behind the office/home NAT router</li>
+      <li>Running a service (e.g. SSH server) on port 22</li>
+    </ul>
+  </div>
+</div>
+
+<p><strong>Goal:</strong> The iPhone wants to connect to the MacBook's SSH server, and the MacBook wants to reach the iPhone's HTTP server. Neither can.</p>
+
+<!-- 2. IP Addresses -->
+<h2 id="ip">2. IP Addresses: Public vs. Private</h2>
+
+<p>Every device on the Internet needs an IP address to send and receive data. But there aren't enough IPv4 addresses for every device (only ~4.3 billion exist). The solution: <strong>private IP addresses</strong> that are reused inside local networks, combined with a <strong>public IP address</strong> shared by the router that connects to the Internet.</p>
+
+<table>
+  <thead>
+    <tr><th></th><th>Private IP Address</th><th>Public IP Address</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Scope</strong></td>
+      <td>Only valid within the local network</td>
+      <td>Globally unique, routable on the Internet</td>
+    </tr>
+    <tr>
+      <td><strong>Assigned by</strong></td>
+      <td>Your router (DHCP)</td>
+      <td>Your ISP / carrier</td>
+    </tr>
+    <tr>
+      <td><strong>Example ranges</strong></td>
+      <td><code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code></td>
+      <td>Everything else (e.g. <code>85.195.x.x</code>)</td>
+    </tr>
+    <tr>
+      <td><strong>Can be reached from Internet?</strong></td>
+      <td><span class="tag tag-blocked">No</span></td>
+      <td><span class="tag tag-public">Yes</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="infobox infobox-blue">
+  <strong>Key point:</strong> Your iPhone's address <code>10.48.12.97</code> and your MacBook's address <code>192.168.1.42</code> are both private. No device on the Internet can send a packet to these addresses — they simply don't exist outside their respective local networks.
+</div>
+
+<!-- 3. What is NAT -->
+<h2 id="nat">3. What is NAT and Why Does It Exist?</h2>
+
+<p><strong>Network Address Translation (NAT)</strong> is the mechanism that allows multiple devices with private IPs to share a single public IP address. Your router performs NAT: it rewrites the source address of outgoing packets from the private IP to its own public IP, and remembers the mapping so it can route replies back to the correct device.</p>
+
+<div class="diagram">
+<span class="comment">── How NAT works for an OUTGOING connection ──</span>
+
+  iPhone (private)          Carrier NAT              Internet            Web Server
+  10.48.12.97:5000   ──▶   Rewrites to:        ──▶  Packet arrives      93.184.216.34:443
+                            85.195.22.1:<span class="ok">61234</span>        from 85.195.22.1
+
+                            <span class="comment">NAT Table entry:</span>
+                            <span class="comment">10.48.12.97:5000 ↔ 85.195.22.1:61234 ↔ 93.184.216.34:443</span>
+
+  Reply comes back:
+  93.184.216.34:443  ──▶   Looks up table:     ──▶  Forwards to:
+                            port 61234 →             10.48.12.97:5000
+                            10.48.12.97:5000         <span class="ok">✓ Works!</span>
+</div>
+
+<p>NAT is transparent for <em>outgoing</em> connections: the iPhone opens a connection to a web server, the NAT creates a mapping, and replies flow back through that mapping. The device behind NAT doesn't even know it's happening.</p>
+
+<!-- 4. The Core Problem -->
+<h2 id="problem">4. The Core Problem: Incoming Connections</h2>
+
+<h3 id="outgoing">4.1 Why Outgoing Connections Work</h3>
+
+<p>When your iPhone opens a connection to <code>google.com</code>, the NAT creates a mapping entry in its table. Google's reply arrives at the NAT's public IP and port, the NAT looks up the mapping, and forwards the reply to the iPhone. The connection works because <strong>the iPhone initiated it</strong>, which created the mapping.</p>
+
+<h3 id="incoming">4.2 Why Incoming Connections Fail</h3>
+
+<p>Now imagine the MacBook wants to connect to the iPhone's HTTP server. The MacBook would need to send a packet to the iPhone — but to which address?</p>
+
+<div class="diagram">
+  MacBook                    MacBook's Router           Internet            Carrier NAT           iPhone
+  192.168.1.42         ──▶   85.195.44.8          ──▶   ???                 ???                   10.48.12.97:8080
+
+  <span class="highlight">Problem: What destination IP does the MacBook use?</span>
+
+  Option A: 10.48.12.97     ──▶  <span class="highlight">✗ FAILS</span> — This is a private IP. The MacBook's router doesn't
+                                    know where to route it. It's not on the MacBook's local network.
+
+  Option B: 85.195.22.1     ──▶  Reaches the carrier NAT, but...
+            (carrier's IP)        The NAT has <span class="highlight">no mapping entry</span> for this incoming packet.
+                                  The iPhone never sent anything to the MacBook, so no
+                                  NAT table entry exists.
+                                  ──▶  <span class="highlight">✗ PACKET DROPPED</span>
+</div>
+
+<div class="infobox infobox-red">
+  <strong>This is the fundamental problem:</strong> A NAT only forwards incoming packets if they match an existing mapping — and mappings are only created by <em>outgoing</em> connections from the device behind the NAT. If nobody inside has talked to you first, your packets are silently dropped.
+</div>
+
+<h3 id="both">4.3 The Double-NAT Deadlock</h3>
+
+<p>In our scenario, <strong>both</strong> devices sit behind a NAT. Neither can initiate a connection to the other:</p>
+
+<div class="diagram">
+  ┌──────────────┐                                                    ┌──────────────┐
+  │   iPhone     │       Carrier NAT              Office NAT          │   MacBook    │
+  │ 10.48.12.97  │──▶  85.195.22.1:?    <span class="highlight">???</span>    85.195.44.8:?  ◀──│ 192.168.1.42 │
+  │              │                                                    │              │
+  │  "I want to  │  <span class="highlight">I don't know the</span>     <span class="highlight">I don't know the</span>    │  "I want to  │
+  │  reach the   │  <span class="highlight">MacBook's private</span>    <span class="highlight">iPhone's private</span>    │  reach the   │
+  │  MacBook"    │  <span class="highlight">IP or NAT port</span>      <span class="highlight">IP or NAT port</span>     │  iPhone"     │
+  └──────────────┘                                                    └──────────────┘
+
+  <span class="highlight">DEADLOCK: Each device needs the other to send first, but neither can.</span>
+
+  • The iPhone can't reach 192.168.1.42 — that IP doesn't exist on the Internet
+  • The MacBook can't reach 10.48.12.97 — that IP doesn't exist on the Internet
+  • Even if they know each other's NAT public IPs, the NATs have no mapping entries
+    to forward the packets to the correct internal device
+</div>
+
+<div class="infobox infobox-orange">
+  <strong>Analogy:</strong> Think of NAT like a hotel reception desk. If a guest (your device) calls an outside number (outgoing connection), the receptionist notes the room number so they can transfer the callback. But if someone from outside calls the hotel and asks for "room 42" without a prior call log, the receptionist doesn't know who they are and won't connect them. Now imagine <em>both</em> people are in different hotels — neither receptionist will connect the call.
+</div>
+
+<!-- 5. CGNAT -->
+<h2 id="cgnat">5. CGNAT: The Mobile Network Problem</h2>
+
+<p>Mobile carriers face an even bigger address shortage. They use <strong>Carrier-Grade NAT (CGNAT)</strong> — a second layer of NAT at the carrier level. Your iPhone might go through <em>two</em> NATs before reaching the Internet:</p>
+
+<div class="diagram">
+  iPhone              Carrier Internal NAT          Carrier Public NAT        Internet
+  10.48.12.97   ──▶   100.64.5.18            ──▶   85.195.22.1         ──▶   ...
+  <span class="tag-private">private</span>              <span class="tag-private">CGNAT range (shared)</span>        <span class="tag-public">public (shared by</span>
+                                                     <span class="tag-public">thousands of users)</span>
+
+  <span class="comment">The 100.64.0.0/10 range is reserved specifically for CGNAT.</span>
+  <span class="comment">You cannot get a port forwarding rule on your carrier's NAT.</span>
+  <span class="comment">The public IP 85.195.22.1 is shared with thousands of other subscribers.</span>
+</div>
+
+<p>With a home router, you could at least configure <strong>port forwarding</strong> (a manual NAT mapping) to expose a service. With CGNAT, that option is completely gone — you don't control the carrier's NAT equipment. This makes mobile devices especially hard to reach from the outside.</p>
+
+<!-- 6. Solutions -->
+<h2 id="solutions">6. How Solutions Overcome NAT</h2>
+
+<p>Since neither device can directly reach the other, all solutions rely on the same core idea: <strong>use a third party that both devices CAN reach</strong> — a server with a public IP address on the Internet. The solutions differ in <em>how much</em> they rely on that server.</p>
+
+<h3 id="sol-vpn">6.1 Traditional VPN — Relay Through a Server</h3>
+
+<p>The simplest approach: both devices connect <em>outward</em> to a VPN server in the cloud. Since outgoing connections work through NAT, both can establish a tunnel to the server. The server then routes traffic between them.</p>
+
+<div class="diagram">
+  ┌──────────────┐                 ┌──────────────────┐                 ┌──────────────┐
+  │   iPhone     │   <span class="ok">outgoing</span>      │   VPN Server     │   <span class="ok">outgoing</span>      │   MacBook    │
+  │ 10.48.12.97  │────tunnel──────▶│  203.0.113.50    │◀──────tunnel────│ 192.168.1.42 │
+  │              │   <span class="ok">(works!)</span>      │  (public IP)     │   <span class="ok">(works!)</span>      │              │
+  │  VPN IP:     │                 │                  │                 │  VPN IP:     │
+  │  10.8.0.2    │◀───encrypted───▶│  Routes between  │◀───encrypted───▶│  10.8.0.3    │
+  └──────────────┘    traffic      │  VPN clients     │    traffic      └──────────────┘
+                                   └──────────────────┘
+
+  <span class="ok">✓ Both connections are OUTGOING → both pass through NAT successfully</span>
+  <span class="comment">  The VPN server acts as a relay, forwarding packets between the two clients.</span>
+  <span class="comment">  Each device gets a virtual private IP (10.8.0.x) on the VPN network.</span>
+</div>
+
+<div class="step-row"><span class="step">1</span><p>iPhone opens an <strong>outgoing</strong> encrypted tunnel to VPN server <code>203.0.113.50</code> → Carrier NAT creates a mapping → connection established.</p></div>
+<div class="step-row"><span class="step">2</span><p>MacBook opens an <strong>outgoing</strong> encrypted tunnel to the same VPN server → Office NAT creates a mapping → connection established.</p></div>
+<div class="step-row"><span class="step">3</span><p>The VPN server assigns virtual IPs (e.g. <code>10.8.0.2</code> for iPhone, <code>10.8.0.3</code> for MacBook).</p></div>
+<div class="step-row"><span class="step">4</span><p>iPhone sends a packet to <code>10.8.0.3</code> (MacBook's VPN IP). The packet travels through the tunnel to the VPN server, which forwards it through the MacBook's tunnel.</p></div>
+
+<div class="infobox infobox-orange">
+  <strong>Downside:</strong> All traffic between the two devices passes through the VPN server, even if the devices are on the same WiFi network. This adds latency (especially if the server is geographically distant) and the server's bandwidth becomes a bottleneck.
+</div>
+
+<p>Examples of this approach: <strong>OpenVPN</strong>, <strong>WireGuard</strong> (in client-server mode), <strong>IPsec/IKEv2</strong>.</p>
+
+<h3 id="sol-overlay">6.2 Overlay Networks — The Smart Approach (ZeroTier, Tailscale)</h3>
+
+<p>Overlay networks like <strong>ZeroTier</strong> and <strong>Tailscale</strong> improve on the basic VPN by adding intelligence: they use a coordination server for setup but then attempt to establish a <strong>direct peer-to-peer connection</strong> between the devices. If direct connection isn't possible, they fall back to relaying.</p>
+
+<div class="diagram">
+  <span class="comment">── Phase 1: Discovery (via coordination server) ──</span>
+
+  ┌──────────────┐                 ┌──────────────────┐                 ┌──────────────┐
+  │   iPhone     │    <span class="ok">outgoing</span>     │  Coordination    │    <span class="ok">outgoing</span>     │   MacBook    │
+  │              │───registers────▶│  Server          │◀───registers────│              │
+  │              │                 │                  │                 │              │
+  │              │◀───receives ────│  "MacBook is at  │────receives───▶ │              │
+  │              │   peer info     │   85.195.44.8    │   peer info     │              │
+  │              │                 │   port 51820"    │                 │              │
+  └──────────────┘                 └──────────────────┘                 └──────────────┘
+
+  <span class="comment">── Phase 2: Direct connection attempt (NAT hole punching) ──</span>
+
+  ┌──────────────┐                                                     ┌──────────────┐
+  │   iPhone     │──────── UDP packet to 85.195.44.8:51820 ──────────▶ │   MacBook    │
+  │              │◀──────  UDP packet to 85.195.22.1:43210  ──────────│              │
+  │              │                                                     │              │
+  │              │     <span class="ok">Direct P2P tunnel established!</span>                    │              │
+  │              │◀═══════ encrypted traffic flows directly ══════════▶│              │
+  └──────────────┘          <span class="ok">(no server in the middle)</span>                   └──────────────┘
+
+  <span class="comment">── Fallback: If direct connection fails ──</span>
+
+  ┌──────────────┐                 ┌──────────────────┐                 ┌──────────────┐
+  │   iPhone     │═══encrypted════▶│  Relay Server    │◀═══encrypted═══│   MacBook    │
+  │              │◀══traffic═══════│  (DERP / Root)   │════traffic════▶ │              │
+  └──────────────┘                 └──────────────────┘                 └──────────────┘
+</div>
+
+<p>Here's how ZeroTier specifically handles it:</p>
+
+<div class="step-row"><span class="step">1</span><p><strong>Registration:</strong> Both devices install the ZeroTier client and join the same virtual network (identified by a 16-digit network ID). Each client connects <em>outward</em> to ZeroTier's "Planet" root servers — this works through NAT because it's an outgoing connection.</p></div>
+<div class="step-row"><span class="step">2</span><p><strong>Peer discovery:</strong> The root server tells each device about the other's public IP and port (as seen from the Internet side of the NAT). Think of this like a mutual friend introducing two people.</p></div>
+<div class="step-row"><span class="step">3</span><p><strong>Hole punching attempt:</strong> Both devices simultaneously send UDP packets to each other's discovered public IP:port. When a NAT sees an outgoing packet to a specific address, it creates a mapping — and if the other device's packet arrives at that mapping in time, the NAT allows it through. This is called <strong>UDP hole punching</strong> (explained in detail in section 6.3).</p></div>
+<div class="step-row"><span class="step">4</span><p><strong>Direct tunnel or relay:</strong> If hole punching succeeds (~90% of the time), all traffic flows directly between the devices — the root server is no longer involved. If it fails (due to very restrictive NAT), traffic relays through ZeroTier's root servers as a fallback.</p></div>
+
+<div class="infobox infobox-green">
+  <strong>Key advantage:</strong> The coordination server only handles tiny control messages (key exchange, endpoint info). Actual data flows peer-to-peer in most cases. This means low latency and no bandwidth bottleneck on the server — unlike a traditional VPN where <em>all</em> traffic goes through the server.
+</div>
+
+<h3 id="sol-holepunch">6.3 UDP Hole Punching — How Direct P2P Works</h3>
+
+<p>The trick that makes direct connections possible is called <strong>UDP hole punching</strong>. It exploits how NAT creates mappings for outgoing packets:</p>
+
+<div class="diagram">
+  <span class="comment">── Setup: Coordination server knows both peers' public endpoints ──</span>
+
+  iPhone NAT mapping:   (none yet)
+  MacBook NAT mapping:  (none yet)
+
+  <span class="comment">── Step 1: Coordination server tells both peers to send simultaneously ──</span>
+
+  iPhone sends UDP to 85.195.44.8:51820  (MacBook's NAT public side)
+    → Carrier NAT creates mapping: <span class="ok">10.48.12.97:5000 ↔ 85.195.22.1:43210 → 85.195.44.8:51820</span>
+    → Packet arrives at MacBook's NAT...
+    → MacBook's NAT has no mapping yet → <span class="highlight">packet dropped</span> (but that's OK!)
+
+  MacBook sends UDP to 85.195.22.1:43210  (iPhone's NAT public side)
+    → Office NAT creates mapping: <span class="ok">192.168.1.42:51820 ↔ 85.195.44.8:51820 → 85.195.22.1:43210</span>
+    → Packet arrives at iPhone's Carrier NAT...
+    → Carrier NAT HAS a mapping for 85.195.44.8:51820 → <span class="ok">✓ PACKET FORWARDED to iPhone!</span>
+
+  <span class="comment">── Step 2: Now the "hole" is punched in BOTH NATs ──</span>
+
+  iPhone sends another UDP to MacBook
+    → Arrives at MacBook's NAT, which now has a mapping for iPhone's address
+    → <span class="ok">✓ FORWARDED to MacBook!</span>
+
+  <span class="ok">Both NATs now have active mappings → bidirectional communication established!</span>
+</div>
+
+<div class="infobox infobox-purple">
+  <strong>Why UDP and not TCP?</strong> UDP is connectionless — you can send a packet without a handshake. TCP requires a three-way handshake (SYN → SYN-ACK → ACK) which must complete in order. Simultaneous TCP opens are theoretically possible but fail in practice because most NATs expect to see the handshake in the correct sequence. UDP packets can simply "fly" in both directions and the NATs will create mappings for them regardless.
+</div>
+
+<p>Hole punching doesn't always work — particularly with <strong>Symmetric NAT</strong> (common on mobile carriers), where the NAT assigns a <em>different</em> external port for each destination. Advanced techniques like port prediction and the "birthday attack" (sending to many ports simultaneously) can overcome this in many cases, which is why Tailscale achieves ~94% direct connection rates.</p>
+
+<!-- 7. Comparison -->
+<h2 id="comparison">7. Comparison: Relay vs. Direct P2P</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th>Traditional VPN<br>(always relay)</th>
+      <th>Overlay Network<br>(ZeroTier / Tailscale)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Data path</strong></td>
+      <td>All traffic through server</td>
+      <td>Direct P2P (with relay fallback)</td>
+    </tr>
+    <tr>
+      <td><strong>Latency</strong></td>
+      <td>Added round-trip to server</td>
+      <td>Near-direct (as if on same LAN)</td>
+    </tr>
+    <tr>
+      <td><strong>Server bandwidth</strong></td>
+      <td>Must handle all traffic</td>
+      <td>Only control messages (tiny)</td>
+    </tr>
+    <tr>
+      <td><strong>Server cost</strong></td>
+      <td>Scales with traffic volume</td>
+      <td>Minimal (or free tiers)</td>
+    </tr>
+    <tr>
+      <td><strong>Works through NAT</strong></td>
+      <td>Yes (outgoing connections)</td>
+      <td>Yes (outgoing + hole punching)</td>
+    </tr>
+    <tr>
+      <td><strong>Works through CGNAT</strong></td>
+      <td>Yes</td>
+      <td>Yes (with fallback)</td>
+    </tr>
+    <tr>
+      <td><strong>Setup complexity</strong></td>
+      <td>Server provisioning needed</td>
+      <td>Install app + join network</td>
+    </tr>
+    <tr>
+      <td><strong>Encryption</strong></td>
+      <td>End-to-server-to-end</td>
+      <td>End-to-end (P2P path)</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- 8. Summary -->
+<h2 id="summary">8. Summary</h2>
+
+<div class="infobox infobox-blue">
+  <strong>The NAT problem in one sentence:</strong> NAT only allows <em>replies</em> to connections that were started from the inside — so if both devices are behind NAT, neither can start a connection to the other.
+</div>
+
+<p>The solutions all share the same principle: <strong>use a publicly reachable server that both devices can connect to</strong> (since outgoing connections always work through NAT). They differ in what happens next:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>Server Role</th>
+      <th>Data Path</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Traditional VPN</strong></td>
+      <td>Permanent relay for all traffic</td>
+      <td>Device → Server → Device</td>
+    </tr>
+    <tr>
+      <td><strong>Overlay / P2P mesh</strong></td>
+      <td>Matchmaker only (introduces peers)</td>
+      <td>Device → Device (direct)</td>
+    </tr>
+    <tr>
+      <td><strong>Overlay fallback</strong></td>
+      <td>Relay only when direct path fails</td>
+      <td>Device → Relay → Device</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For the specific case of an <strong>iPhone on 5G</strong> communicating with a <strong>MacBook on LAN</strong>, overlay networks like ZeroTier or Tailscale are the most practical solution. They handle NAT traversal, CGNAT, IP address changes during mobile handovers, and encryption — all transparently, with no server infrastructure to maintain.</p>
+
+<!-- Footer -->
+<div class="footer">
+  <p>OpenHanse — Knowledge Base<br>
+  Related articles: <a href="#">P2P Tunneling & NAT Traversal — Technology Overview</a> | <a href="#">WireGuard Configuration Guide</a><br>
+  Last updated: March 2026</p>
+</div>
+
+</body>
+</html>

@@ -35,6 +35,7 @@ The OpenHanse Network project is organized into several key components, targets,
 ## Technical Stack (WIP)
 
 - SSH Tunneling vs. TLS Tunneling vs. SOCKS vs. Generic TCP/UDP Tunneling?
+- IPv6 based identification and/or networking?
 - Shared Rust Architecture
 ```mermaid
 graph TD
@@ -78,3 +79,13 @@ sequenceDiagram
         Server-->>GatewayA: Forward response
     end
 ```
+- OpenHanse for iOS, iPadOS, macOS, Android, Windows and Linux as general "demonstration" of functionality and use cases
+  - the mobile app could provide different "mini apps" for different protocols and use cases:
+    - Chat (Custom protocol) like WhatsApp or Telegram
+    - HTTP (Browser) like Safari or Chrome
+    - HTTP (API) like Postman or Bruno
+    - SSH (Terminal) like Termux
+    - FTP like FileZilla
+    - WebSockets
+    - gRPC
+    - MQTT
